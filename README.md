@@ -1,4 +1,4 @@
-# MSE TSM MobCom Project X
+# MSE TSM MobCom Project A
 ## Agile
 * [Add a new issue](../../issues/new) for each task.
 * Tag [issues](../../issues) with [todo](../../issues?q=is%3Aissue%20state%3Aopen%20label%3Atodo), [doing](../../issues?q=is%3Aissue%20state%3Aopen%20label%3Adoing), [done](../../issues?q=is%3Aissue%20state%3Aopen%20label%3Adone) (and [backlog](../../issues?q=is%3Aissue%20state%3Aopen%20label%3Abacklog)).
