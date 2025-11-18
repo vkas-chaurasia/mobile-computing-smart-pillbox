@@ -86,3 +86,6 @@ lint/tmp/
 
 # MacOS
 .DS_Store
+
+# vscode
+.idea

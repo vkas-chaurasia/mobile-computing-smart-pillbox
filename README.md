@@ -7,9 +7,9 @@
 ## Team
 > Note: Commit (and push) early and often, git history serves as a proof of team work.
 
-* STUDENT1_NAME ([@GITHUB_USER1](https://github.com/GITHUB_USER1))
-* STUDENT2_NAME ([@GITHUB_USER2](https://github.com/GITHUB_USER2))
-* STUDENT3_NAME ([@GITHUB_USER3](https://github.com/GITHUB_USER3))
+* STUDENT1_NAME ([@vkas-chaurasia](https://github.com/vkas-chaurasia))
+* STUDENT2_NAME ([@skiran017](https://github.com/skiran017))
+* STUDENT3_NAME ([@JonnyTheCattest](https://github.com/JonnyTheCattest))
 
 ## Code
 * [Android](android)
