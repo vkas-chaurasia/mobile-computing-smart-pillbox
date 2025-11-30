@@ -22,7 +22,7 @@
         android:maxSdkVersion="30"/>
 
     <!--
-      Declare that the app uses Bluetooth Low Energy. This allows the Google Play Store
+      app uses Bluetooth Low Energy. This allows the Google Play Store
       to filter and show the app only to devices that support BLE.
     -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>

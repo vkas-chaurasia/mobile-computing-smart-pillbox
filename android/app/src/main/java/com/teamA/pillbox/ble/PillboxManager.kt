@@ -23,14 +23,12 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
     private val TAG = "PillboxManager"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // --- Private members for characteristics ---
     private var rxCharacteristic: BluetoothGattCharacteristic? = null
     private var txCharacteristic: BluetoothGattCharacteristic? = null // For sensor data
     private var basCharacteristic: BluetoothGattCharacteristic? = null
     private var disModelCharacteristic: BluetoothGattCharacteristic? = null
     private var disManufCharacteristic: BluetoothGattCharacteristic? = null
 
-    // --- Public State Flows for the UI ---
     private val _sensorData = MutableStateFlow("")
     override val sensorData: StateFlow<String> = _sensorData
 
@@ -55,7 +53,6 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
             }
             .stateIn(scope, SharingStarted.Lazily, Pillbox.State.NOT_AVAILABLE)
 
-    // --- Core BleManager Implementation ---
 
     override fun getMinLogPriority() = Log.VERBOSE
 
@@ -146,20 +143,15 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
 
     override fun getGattCallback(): BleManagerGattCallback = PillboxGattCallback()
 
-    // --- Public API for ViewModel ---
-
     suspend fun connectToPillbox(device: BluetoothDevice) {
-        // THIS IS THE CRITICAL FIX FOR ANDROID 11 vs 12+
-        // Only check for BLUETOOTH_CONNECT permission on Android 12 (S) or higher.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 log(Log.ERROR, "Cannot connect: BLUETOOTH_CONNECT permission not granted on Android 12+.")
-                return // Stop if permission is missing
+                return
             }
         }
 
         try {
-            // This logic is now safe for all versions. On Android 11, the permission check is skipped.
             if (device.bondState == BluetoothDevice.BOND_BONDED) {
                 log(Log.INFO, "Device is bonded. Removing bond info before connecting...")
                 removeBond().suspend()

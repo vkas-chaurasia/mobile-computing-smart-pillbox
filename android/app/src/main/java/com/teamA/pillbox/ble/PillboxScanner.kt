@@ -33,10 +33,8 @@ class PillboxScanner(private val context: Context) {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // --- Companion object to hold constants ---
     companion object {
         private const val SCAN_TIMEOUT_MS = 15_000L
-        // --- THIS IS THE MAC ADDRESS OF YOUR PILLBOX ---
         private const val TARGET_DEVICE_ADDRESS = "FC:9A:0C:D8:7B:AE"
     }
 
@@ -45,10 +43,7 @@ class PillboxScanner(private val context: Context) {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
 
-            // --- THIS IS THE FILTER LOGIC ---
-            // Check if the found device's address matches our target address.
             if (result.device.address == TARGET_DEVICE_ADDRESS) {
-                // If it matches, add it to the list (if it's not already there).
                 if (_scannedDevices.value.none { it.device.address == result.device.address }) {
                     _scannedDevices.value = _scannedDevices.value + result
                     val deviceName = result.device.name ?: result.scanRecord?.deviceName ?: "Pillbox"
@@ -77,24 +72,22 @@ class PillboxScanner(private val context: Context) {
         }
 
         if (_isScanning.value) {
-            return // Scan already in progress
+            return
         }
 
-        // Scan settings for continuous scanning
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
         _scannedDevices.value = emptyList()
 
-        // Stop scan after a timeout
         handler.postDelayed({
             if (_isScanning.value) {
                 stopScan()
             }
         }, SCAN_TIMEOUT_MS)
 
-        // Start scan with NO FILTERS (null) so we can check the address manually.
+
         bluetoothLeScanner.startScan(null, scanSettings, leScanCallback)
         _isScanning.value = true
         Log.d(TAG, "Scan started. Searching for device with address: $TARGET_DEVICE_ADDRESS")
@@ -110,7 +103,6 @@ class PillboxScanner(private val context: Context) {
             Log.d(TAG, "Scan stopped.")
         }
 
-        // Clear any pending timeout runnable
         handler.removeCallbacksAndMessages(null)
     }
 

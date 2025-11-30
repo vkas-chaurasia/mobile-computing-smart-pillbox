@@ -75,9 +75,9 @@ void setupUartService() {
 
 void startAdvertising() {
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
-  Bluefruit.Advertising.addService(uartService);
   Bluefruit.Advertising.addName();
+  Bluefruit.Advertising.addService(uartService);
+ 
   
   const int fastModeInterval = 32;     
   const int slowModeInterval = 244;

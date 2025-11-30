@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,7 +24,7 @@ import com.teamA.pillbox.viewmodel.PillboxViewModel
 import com.teamA.pillbox.ble.Pillbox
 import androidx.compose.material3.Typography
 
-// ---------- Theme ----------
+
 @Composable
 fun PillboxTheme(content: @Composable () -> Unit) {
     val customColors = darkColorScheme(
@@ -42,7 +43,6 @@ fun PillboxTheme(content: @Composable () -> Unit) {
     )
 }
 
-// ---------- Scanner Screen (Refactored to use UiState) ----------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PillboxScannerScreen(
@@ -113,7 +113,7 @@ fun PillboxScannerScreen(
 }
 
 
-@SuppressLint("MissingPermission") // Permissions are handled by BlePermissionHelper before scanning
+@SuppressLint("MissingPermission")
 @Composable
 fun DeviceListItem(result: ScanResult, onClick: (String) -> Unit) {
     val deviceName = result.device.name ?: result.scanRecord?.deviceName ?: "N/A"
@@ -150,21 +150,17 @@ fun DeviceListItem(result: ScanResult, onClick: (String) -> Unit) {
     }
 }
 
-// ---------- Control Screen (UPDATED) ----------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
-    // Collect states directly from the ViewModel
     val connectionState by viewModel.connectionState.collectAsState()
     val modelNumber by viewModel.modelNumber.collectAsState()
     val manufacturerName by viewModel.manufacturerName.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
 
-    // --- NEW: Collect the parsed light and tilt values ---
     val lightValue by viewModel.lightSensorValue.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
-    // Read device info once when the screen is ready
     LaunchedEffect(connectionState) {
         if (connectionState == Pillbox.State.READY) {
             viewModel.readDeviceInfo()
@@ -177,6 +173,14 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
             TopAppBar(
                 title = { Text(deviceName, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.disconnect() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Disconnect"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.sendTestCommand() }) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send Test Command")
@@ -208,7 +212,6 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
                         batteryLevel = batteryLevel
                     )
                     Spacer(Modifier.height(24.dp))
-                    // --- UPDATED: Pass the new values to the SensorDataCard ---
                     SensorDataCard(lightValue = lightValue, tiltValue = tiltValue)
                     Spacer(Modifier.height(24.dp))
                     AuxiliaryDataCard(
@@ -226,7 +229,6 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
 }
 
 
-// Helper composable for connection status
 @Composable
 fun ConnectionStatusCard(
     status: String,
@@ -281,10 +283,8 @@ fun AuxiliaryDataCard(
     }
 }
 
-// --- UPDATED: SensorDataCard now receives Ints, not a String ---
 @Composable
 fun SensorDataCard(lightValue: Int, tiltValue: Int) {
-    // Logic is now simpler as parsing is done in the ViewModel
     val tiltText = when (tiltValue) {
         1 -> "TILTED (Pillbox Moved)"
         0 -> "STABLE"
@@ -323,4 +323,3 @@ fun DataRow(label: String, value: String, icon: ImageVector, modifier: Modifier 
         Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
-
