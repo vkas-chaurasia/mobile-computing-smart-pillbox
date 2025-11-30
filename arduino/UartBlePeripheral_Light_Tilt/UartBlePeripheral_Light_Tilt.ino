@@ -7,6 +7,10 @@ int tiltSensor = 9;
 BLEDis deviceInfoService;  // Device information service 
 BLEBas batteryService;   // Battery service
 
+//6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+//6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+//6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+
 // Nordic UART BLE Service UUIDs 
 uint8_t const uartServiceUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E };
 uint8_t const rxCharacteristicUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E };
@@ -71,9 +75,9 @@ void setupUartService() {
 
 void startAdvertising() {
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
-  Bluefruit.Advertising.addService(uartService);
   Bluefruit.Advertising.addName();
+  Bluefruit.Advertising.addService(uartService);
+ 
   
   const int fastModeInterval = 32;     
   const int slowModeInterval = 244;
