@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
@@ -12,8 +13,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.teamA.pillbox.PillboxSpec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -35,7 +38,6 @@ class PillboxScanner(private val context: Context) {
 
     companion object {
         private const val SCAN_TIMEOUT_MS = 15_000L
-        private const val TARGET_DEVICE_ADDRESS = "FC:9A:0C:D8:7B:AE"
     }
 
     private val leScanCallback: ScanCallback = object : ScanCallback() {
@@ -43,12 +45,10 @@ class PillboxScanner(private val context: Context) {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
 
-            if (result.device.address == TARGET_DEVICE_ADDRESS) {
-                if (_scannedDevices.value.none { it.device.address == result.device.address }) {
-                    _scannedDevices.value = _scannedDevices.value + result
-                    val deviceName = result.device.name ?: result.scanRecord?.deviceName ?: "Pillbox"
-                    Log.d(TAG, "SUCCESS: Found target Pillbox device: $deviceName (${result.device.address})")
-                }
+            if (_scannedDevices.value.none { it.device.address == result.device.address }) {
+                _scannedDevices.value = _scannedDevices.value + result
+                val deviceName = result.device.name ?: result.scanRecord?.deviceName ?: "Unknown BLE Device"
+                Log.d(TAG, "SUCCESS: Found a potential Pillbox device: $deviceName (${result.device.address})")
             }
         }
 
@@ -75,6 +75,10 @@ class PillboxScanner(private val context: Context) {
             return
         }
 
+        val scanFilter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(PillboxSpec.PILLBOX_SERVICE_UUID))
+            .build()
+
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
@@ -87,10 +91,9 @@ class PillboxScanner(private val context: Context) {
             }
         }, SCAN_TIMEOUT_MS)
 
-
-        bluetoothLeScanner.startScan(null, scanSettings, leScanCallback)
+        bluetoothLeScanner.startScan(listOf(scanFilter), scanSettings, leScanCallback)
         _isScanning.value = true
-        Log.d(TAG, "Scan started. Searching for device with address: $TARGET_DEVICE_ADDRESS")
+        Log.d(TAG, "Scan started. Searching for devices with service UUID: ${PillboxSpec.PILLBOX_SERVICE_UUID}")
     }
 
     @SuppressLint("MissingPermission")

@@ -1,99 +1,104 @@
-#include "Adafruit_TinyUSB.h" 
-#include <bluefruit.h> 
+#include "Adafruit_TinyUSB.h"
+#include <bluefruit.h>
 
-int lightSensor = A0; 
+// Sensor Pins
+int lightSensor = A0;
 int tiltSensor = 9;
 
-BLEDis deviceInfoService;  // Device information service 
-BLEBas batteryService;   // Battery service
+bool lightSubscribed = false;
+bool tiltSubscribed = false;
 
-//6E400001-B5A3-F393-E0A9-E50E24DCCA9E
-//6E400002-B5A3-F393-E0A9-E50E24DCCA9E
-//6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+// Standard BLE Services
+BLEDis deviceInfoService;
+BLEBas batteryService;
 
-// Nordic UART BLE Service UUIDs 
-uint8_t const uartServiceUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E };
-uint8_t const rxCharacteristicUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E };
-uint8_t const txCharacteristicUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x03, 0x00, 0x40, 0x6E };
+// Custom GATT Service API
+// Pillbox Service UUID: 0000AB00-B5A3-F393-E0A9-E50E24DCCA9E 
+// Light Sensor Characteristic UUID: 0000AB01-B5A3-F393-E0A9-E50E24DCCA9E
+ // Tilt Sensor Characteristic UUID: 0000AB02-B5A3-F393-E0A9-E50E24DCCA9E
 
-uint16_t mtu; // Maximum Transmission Unit
-BLEService uartService = BLEService(uartServiceUuid);
-BLECharacteristic rxCharacteristic = BLECharacteristic(rxCharacteristicUuid);  
-BLECharacteristic txCharacteristic = BLECharacteristic(txCharacteristicUuid);
+// Custom GATT Service UUIDs
+uint8_t const pillboxServiceUuid[]     = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x00, 0xAB, 0x00, 0x00 };
+uint8_t const lightCharacteristicUuid[] = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0xAB, 0x00, 0x00 };
+uint8_t const tiltCharacteristicUuid[]  = { 0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x02, 0xAB, 0x00, 0x00 };
 
+// Service and Characteristics
+BLEService pillboxService = BLEService(pillboxServiceUuid);
+BLECharacteristic lightCharacteristic = BLECharacteristic(lightCharacteristicUuid);
+BLECharacteristic tiltCharacteristic  = BLECharacteristic(tiltCharacteristicUuid);
 
+// Connection callbacks
 void connectedCallback(uint16_t connHandle) {
-  char centralName[32] = { 0 };
-  BLEConnection *connection = Bluefruit.Connection(connHandle);
-  connection->getPeerName(centralName, sizeof(centralName));
   Serial.print(connHandle);
-  Serial.print(", connected to ");
-  Serial.print(centralName);
-  Serial.println();
+  Serial.println(" connected");
 }
-
 
 void disconnectedCallback(uint16_t connHandle, uint8_t reason) {
   Serial.print(connHandle);
-  Serial.print(" disconnected, reason = ");
+  Serial.print(" disconnected, reason=");
   Serial.println(reason);
-  Serial.println("Advertising ...");
+
+  lightSubscribed = false;
+  tiltSubscribed = false;
 }
 
+// CCCD callback
+void myCccdCallback(uint16_t connHandle, BLECharacteristic* chr, uint16_t cccdValue) {
+  bool enabled = cccdValue & BLE_GATT_HVX_NOTIFICATION;
 
-void cccdCallback(uint16_t connHandle, BLECharacteristic* characteristic, uint16_t cccdValue) {
-  if (characteristic->uuid == txCharacteristic.uuid) {
-    Serial.print("UART 'Notify', ");
-    if (characteristic->notifyEnabled()) {
-      Serial.println("enabled");
-    } else {
-      Serial.println("disabled");
-    }
+  if (chr->uuid == lightCharacteristic.uuid) {
+    lightSubscribed = enabled;
+    Serial.print("Light Sensor: ");
+    Serial.println(enabled ? "Subscribed" : "Unsubscribed");
+  }
+
+  else if (chr->uuid == tiltCharacteristic.uuid) {
+    tiltSubscribed = enabled;
+    Serial.print("Tilt Sensor: ");
+    Serial.println(enabled ? "Subscribed" : "Unsubscribed");
   }
 }
 
-void writeCallback(uint16_t connHandle, BLECharacteristic* characteristic, uint8_t* rxData, uint16_t len) {
-  // Reserved for commands from central
-}
+// Setup pillbox service
+void setupPillboxService() {
+  pillboxService.begin();
 
+  // Light characteristic
+  lightCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
+  lightCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
+  lightCharacteristic.setFixedLen(1);
+  lightCharacteristic.setCccdWriteCallback(myCccdCallback);
+  lightCharacteristic.begin();
+  lightCharacteristic.write8(0);
 
-void setupUartService() {
-  uartService.begin();
-
-  txCharacteristic.setProperties(CHR_PROPS_NOTIFY);
-  txCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  txCharacteristic.setMaxLen(mtu);
-  txCharacteristic.setCccdWriteCallback(cccdCallback);
-  txCharacteristic.begin();
-
-  rxCharacteristic.setProperties(CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
-  rxCharacteristic.setPermission(SECMODE_NO_ACCESS, SECMODE_OPEN);
-  rxCharacteristic.setMaxLen(mtu);
-  rxCharacteristic.setWriteCallback(writeCallback, true);
-  rxCharacteristic.begin();
+  // Tilt characteristic
+  tiltCharacteristic.setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
+  tiltCharacteristic.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
+  tiltCharacteristic.setFixedLen(1);
+  tiltCharacteristic.setCccdWriteCallback(myCccdCallback);
+  tiltCharacteristic.begin();
+  tiltCharacteristic.write8(0);
 }
 
 void startAdvertising() {
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
   Bluefruit.Advertising.addName();
-  Bluefruit.Advertising.addService(uartService);
- 
-  
-  const int fastModeInterval = 32;     
-  const int slowModeInterval = 244;
-  const int fastModeTimeout = 30;
+  Bluefruit.Advertising.addService(pillboxService);
+
   Bluefruit.Advertising.restartOnDisconnect(true);
-  Bluefruit.Advertising.setInterval(fastModeInterval, slowModeInterval);
-  Bluefruit.Advertising.setFastTimeout(fastModeTimeout); 
+  Bluefruit.Advertising.setInterval(32, 244);
+  Bluefruit.Advertising.setFastTimeout(30);
   Bluefruit.Advertising.start(0);
-  Serial.println("Advertising ...");
+
+  Serial.println("Advertising...");
 }
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { delay(10); }
-  Serial.println("Setup");
-  
+  while (!Serial) delay(10);
+
+  Serial.println("Starting Pillbox BLE Service");
+
   Bluefruit.begin();
   Bluefruit.setName("pillbox");
   Bluefruit.Periph.setConnectCallback(connectedCallback);
@@ -106,31 +111,35 @@ void setup() {
   batteryService.begin();
   batteryService.write(100);
 
-  pinMode(tiltSensor, INPUT);
-
-  mtu = Bluefruit.getMaxMtu(BLE_GAP_ROLE_PERIPH);
-
-  setupUartService();
+  setupPillboxService();
   startAdvertising();
 
+  pinMode(tiltSensor, INPUT);
 }
 
 void loop() {
+
   if (Bluefruit.connected()) {
-    int rawLight = analogRead(lightSensor);
-    int lightPercent = map(rawLight, 0, 1023, 0, 100);
-    int tiltState = digitalRead(tiltSensor);
 
-    String data = "light:" + String(lightPercent) + ";tilt:" + String(tiltState) + "\n";
+    uint8_t lightPercent = 0;
+    uint8_t tiltState = 0;
 
-    uint8_t txData[mtu];
-    data.getBytes(txData, mtu);
-
-    if (!txCharacteristic.notify(txData, strlen((char*)txData))) {
-      Serial.println("Notify error");
-    } else {
-      Serial.println("Sent: " + data);
+    // Notify only if subscribed
+    if (lightSubscribed) {
+      int rawLight = analogRead(lightSensor);
+      lightPercent = map(rawLight, 0, 1023, 0, 100);
+      lightCharacteristic.notify8(lightPercent);
     }
+
+    if (tiltSubscribed) {
+      tiltState = digitalRead(tiltSensor);
+      tiltCharacteristic.notify8(tiltState);
+    }
+
+    Serial.print("Light: ");
+    Serial.print(lightPercent);
+    Serial.print("% | Tilt: ");
+    Serial.println(tiltState);
   }
 
   delay(1000);

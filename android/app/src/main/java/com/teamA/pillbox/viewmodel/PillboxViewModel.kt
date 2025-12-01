@@ -38,23 +38,14 @@ class PillboxViewModel(
     val modelNumber: StateFlow<String> = repository.modelNumber
     val manufacturerName: StateFlow<String> = repository.manufacturerName
 
-    private val _lightSensorValue = MutableStateFlow(0)
-    val lightSensorValue: StateFlow<Int> = _lightSensorValue.asStateFlow()
-
-    private val _tiltSensorValue = MutableStateFlow(0)
-    val tiltSensorValue: StateFlow<Int> = _tiltSensorValue.asStateFlow()
+    val lightSensorValue: StateFlow<Int> = repository.lightLevel
+    val tiltSensorValue: StateFlow<Int> = repository.tiltState
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e("PillboxVM", "Coroutine failed: ${throwable.message}", throwable)
     }
 
     init {
-        // Observe and parse raw sensor data string
-        repository.sensorData
-            .onEach { data -> parseSensorData(data) }
-            .launchIn(viewModelScope)
-
-        // Keep the scanner state in sync with the UI State
         viewModelScope.launch {
             scanner.scannedDevices.collect { devices ->
                 if (_uiState.value is UiState.Scanning) {
@@ -71,28 +62,6 @@ class PillboxViewModel(
             }
         }
     }
-
-    private fun parseSensorData(data: String) {
-        if (data.isBlank()) return
-        try {
-            data.split(';').forEach { part ->
-                val pair = part.split(':')
-                if (pair.size == 2) {
-                    val key = pair[0].trim()
-                    val value = pair[1].trim().toIntOrNull()
-                    if (value != null) {
-                        when (key) {
-                            "light" -> _lightSensorValue.value = value
-                            "tilt" -> _tiltSensorValue.value = value
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("PillboxVM", "Failed to parse sensor data: '$data'", e)
-        }
-    }
-
 
     fun startScan(permissionHelper: BlePermissionHelper) {
         if (!permissionHelper.hasRequiredPermissions()) {
@@ -141,12 +110,6 @@ class PillboxViewModel(
         }
         if (_uiState.value !is UiState.Connected && _uiState.value !is UiState.Scanning) {
             _uiState.value = UiState.Idle
-        }
-    }
-
-    fun sendTestCommand() {
-        viewModelScope.launch(Dispatchers.IO + exceptionHandler) {
-            repository.sendCommand("led:toggle")
         }
     }
 

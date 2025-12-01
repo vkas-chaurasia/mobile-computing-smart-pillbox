@@ -20,8 +20,11 @@ class PillboxRepository(private val context: Context) {
     private val _state = MutableStateFlow(Pillbox.State.NOT_AVAILABLE)
     val state: StateFlow<Pillbox.State> = _state
 
-    private val _sensorData = MutableStateFlow("light:N/A;tilt:N/A")
-    val sensorData: StateFlow<String> = _sensorData
+    private val _lightLevel = MutableStateFlow(0)
+    val lightLevel: StateFlow<Int> = _lightLevel
+
+    private val _tiltState = MutableStateFlow(0)
+    val tiltState: StateFlow<Int> = _tiltState
 
     private val _batteryLevel = MutableStateFlow(0)
     val batteryLevel: StateFlow<Int> = _batteryLevel
@@ -43,18 +46,22 @@ class PillboxRepository(private val context: Context) {
         }
 
         newManager.state.observe(_state)
-        newManager.sensorData.observe(_sensorData)
+
+        newManager.lightLevel.observe(_lightLevel)
+        newManager.tiltState.observe(_tiltState)
         newManager.batteryLevel.observe(_batteryLevel)
         newManager.modelNumber.observe(_modelNumber)
         newManager.manufacturerName.observe(_manufacturerName)
-
     }
 
     fun release() {
         manager?.release()
         manager = null
+
         _state.value = Pillbox.State.NOT_AVAILABLE
-        _sensorData.value = "light:N/A;tilt:N/A"
+        _lightLevel.value = 0
+        _tiltState.value = 0
+
         _batteryLevel.value = 0
         _modelNumber.value = "N/A"
         _manufacturerName.value = "N/A"
@@ -66,10 +73,6 @@ class PillboxRepository(private val context: Context) {
 
     suspend fun readBatteryLevel() {
         manager?.readBattery()
-    }
-
-    suspend fun sendCommand(command: String) {
-        manager?.sendCommand(command)
     }
 
     private fun <T> StateFlow<T>.observe(mutableStateFlow: MutableStateFlow<T>) {
