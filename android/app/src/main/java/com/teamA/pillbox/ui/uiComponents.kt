@@ -177,8 +177,8 @@ fun PillboxControlScreen(
 
     // Medication schedule and history
     val scheduleUiState by scheduleViewModel.uiState.collectAsState()
-    val currentSchedule = when (scheduleUiState) {
-        is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> scheduleUiState.schedule
+    val currentSchedule = when (val state = scheduleUiState) {
+        is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> state.schedule
         else -> null
     }
     val todayRecord = historyViewModel.getTodayRecord()
@@ -191,7 +191,7 @@ fun PillboxControlScreen(
     }
 
     // Handle "Mark as Taken"
-    val onMarkAsTaken = {
+    val onMarkAsTaken: () -> Unit = {
         currentSchedule?.let { schedule ->
             val today = java.time.LocalDate.now()
             val now = java.time.LocalDateTime.now()
@@ -208,6 +208,7 @@ fun PillboxControlScreen(
             
             historyViewModel.createRecord(record)
         }
+        Unit
     }
 
     Scaffold(

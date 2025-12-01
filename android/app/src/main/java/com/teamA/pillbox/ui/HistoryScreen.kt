@@ -70,6 +70,7 @@ fun HistoryScreen(
             }
 
             is HistoryUiState.Error -> {
+                val errorMessage = uiState.message
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -86,7 +87,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = uiState.message,
+                        text = errorMessage,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -142,6 +143,7 @@ fun HistoryScreen(
             }
 
             is HistoryUiState.Loaded -> {
+                val loadedState = uiState
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -151,7 +153,7 @@ fun HistoryScreen(
                 ) {
                     // Statistics Card
                     item {
-                        StatisticsCard(statistics = uiState.statistics)
+                        StatisticsCard(statistics = loadedState.statistics)
                     }
 
                     // Filter Chips

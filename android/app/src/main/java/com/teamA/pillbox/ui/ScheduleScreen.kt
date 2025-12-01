@@ -79,9 +79,9 @@ fun ScheduleScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // Current Schedule Card (if exists)
-            when (uiState) {
+            when (val state = uiState) {
                 is ScheduleUiState.Loaded -> {
-                    CurrentScheduleCard(schedule = uiState.schedule)
+                    CurrentScheduleCard(schedule = state.schedule)
                 }
                 is ScheduleUiState.Empty -> {
                     // Empty state message
@@ -123,6 +123,7 @@ fun ScheduleScreen(
                     )
                 }
                 is ScheduleUiState.Error -> {
+                    val errorMessage = state.message
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -130,7 +131,7 @@ fun ScheduleScreen(
                         )
                     ) {
                         Text(
-                            text = uiState.message,
+                            text = errorMessage,
                             modifier = Modifier.padding(16.dp),
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
