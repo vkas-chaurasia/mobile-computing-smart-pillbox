@@ -10,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -180,11 +179,6 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
                             contentDescription = "Disconnect"
                         )
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.sendTestCommand() }) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send Test Command")
-                    }
                 }
             )
         },
@@ -297,7 +291,7 @@ fun SensorDataCard(lightValue: Int, tiltValue: Int) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Live Sensor Stream (NUS)",
+                "Live Sensor Data",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

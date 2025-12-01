@@ -143,7 +143,7 @@ fun PillboxApp(viewModel: PillboxViewModel, permissionHelper: BlePermissionHelpe
                 deviceName = state.deviceName ?: "Pillbox"
             )
         }
-        else -> { // Handles Idle and Scanning states
+        else -> {
             PillboxScannerScreen(
                 uiState = state,
                 onScanClicked = onScanClicked,

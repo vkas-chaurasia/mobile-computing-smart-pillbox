@@ -23,14 +23,19 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
     private val TAG = "PillboxManager"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private var rxCharacteristic: BluetoothGattCharacteristic? = null
-    private var txCharacteristic: BluetoothGattCharacteristic? = null // For sensor data
+    private var lightCharacteristic: BluetoothGattCharacteristic? = null
+    private var tiltCharacteristic: BluetoothGattCharacteristic? = null
+
     private var basCharacteristic: BluetoothGattCharacteristic? = null
     private var disModelCharacteristic: BluetoothGattCharacteristic? = null
     private var disManufCharacteristic: BluetoothGattCharacteristic? = null
 
-    private val _sensorData = MutableStateFlow("")
-    override val sensorData: StateFlow<String> = _sensorData
+    private val _lightLevel = MutableStateFlow(0)
+    override val lightLevel: StateFlow<Int> = _lightLevel
+
+    private val _tiltState = MutableStateFlow(0)
+    override val tiltState: StateFlow<Int> = _tiltState
+
 
     private val _batteryLevel = MutableStateFlow(0)
     override val batteryLevel: StateFlow<Int> = _batteryLevel
@@ -64,28 +69,28 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
 
         @Deprecated("Required by this version of the library.", ReplaceWith(""))
         override fun isRequiredServiceSupported(gatt: BluetoothGatt): Boolean {
-            val nusService = gatt.getService(PillboxSpec.NUS_SERVICE_UUID)
-            if (nusService == null) {
-                log(Log.ERROR, "CRITICAL: Nordic UART Service (NUS) not found.")
+            val pillboxService = gatt.getService(PillboxSpec.PILLBOX_SERVICE_UUID)
+            if (pillboxService == null) {
+                log(Log.ERROR, "CRITICAL: Pillbox Service not found.")
                 return false
             }
 
-            txCharacteristic = nusService.getCharacteristic(PillboxSpec.NUS_TX_CHARACTERISTIC_UUID)
-            rxCharacteristic = nusService.getCharacteristic(PillboxSpec.NUS_RX_CHARACTERISTIC_UUID)
+            lightCharacteristic = pillboxService.getCharacteristic(PillboxSpec.LIGHT_SENSOR_CHARACTERISTIC_UUID)
+            tiltCharacteristic = pillboxService.getCharacteristic(PillboxSpec.TILT_SENSOR_CHARACTERISTIC_UUID)
 
-            if (txCharacteristic == null || rxCharacteristic == null) {
-                log(Log.ERROR, "CRITICAL: NUS TX or RX Characteristic not found.")
+            if (lightCharacteristic == null || tiltCharacteristic == null) {
+                log(Log.ERROR, "CRITICAL: Light or Tilt Characteristic not found.")
                 return false
             }
 
-            val txIsValid = (txCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
-            val rxIsValid = (rxCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_WRITE) > 0
+            val lightIsValid = (lightCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
+            val tiltIsValid = (tiltCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
 
-            if (!txIsValid || !rxIsValid) {
-                log(Log.ERROR, "CRITICAL: NUS characteristics have wrong properties.")
+            if (!lightIsValid || !tiltIsValid) {
+                log(Log.ERROR, "CRITICAL: Pillbox characteristics have wrong properties.")
                 return false
             }
-            log(Log.INFO, "SUCCESS: Required NUS Service and Characteristics are valid.")
+            log(Log.INFO, "SUCCESS: Required Pillbox Service and Characteristics are valid.")
             return true
         }
 
@@ -103,21 +108,31 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
 
 
         override fun initialize() {
-            setNotificationCallback(txCharacteristic!!)
-                .with { _, data: Data ->
-                    data.value?.let {
-                        val receivedText = String(it).trim()
-                        if (receivedText.isNotEmpty() && _sensorData.value != receivedText) {
-                            log(Log.INFO, "NUS Data received: $receivedText")
-                            _sensorData.value = receivedText
+            lightCharacteristic?.let { char ->
+                setNotificationCallback(char)
+                    .with { _, data: Data ->
+                        val light = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
+                        if (_lightLevel.value != light) {
+                            _lightLevel.value = light
                         }
                     }
-                }
+            }
+
+            tiltCharacteristic?.let { char ->
+                setNotificationCallback(char)
+                    .with { _, data: Data ->
+                        val tilt = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
+                        if (_tiltState.value != tilt) {
+                            _tiltState.value = tilt
+                        }
+                    }
+            }
 
             beginAtomicRequestQueue()
                 .add(requestMtu(247).fail { _, status -> log(Log.WARN, "MTU request failed: $status") })
-                .add(enableNotifications(txCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable sensor (NUS) notifications: $status") })
-                .done { log(Log.INFO, "Sensor (NUS) notifications enabled.") }
+                .add(enableNotifications(lightCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Light notifications: $status") })
+                .add(enableNotifications(tiltCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Tilt notifications: $status") })
+                .done { log(Log.INFO, "Pillbox sensor notifications enabled.") }
                 .enqueue()
 
             basCharacteristic?.let { batChar ->
@@ -133,8 +148,8 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
         }
 
         override fun onServicesInvalidated() {
-            rxCharacteristic = null
-            txCharacteristic = null
+            lightCharacteristic = null
+            tiltCharacteristic = null
             basCharacteristic = null
             disModelCharacteristic = null
             disManufCharacteristic = null
@@ -187,11 +202,4 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
         } catch (e: Exception) { Log.e(TAG, "Failed to read battery", e) }
     }
 
-    override suspend fun sendCommand(command: String) {
-        rxCharacteristic?.let {
-            try {
-                writeCharacteristic(it, command.toByteArray(), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT).suspend()
-            } catch (e: Exception) { Log.e(TAG, "Failed to send command", e) }
-        } ?: Log.w(TAG, "Cannot send command, RX characteristic is null.")
-    }
 }
