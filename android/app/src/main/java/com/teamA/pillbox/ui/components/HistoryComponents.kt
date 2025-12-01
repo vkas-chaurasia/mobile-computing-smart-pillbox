@@ -78,19 +78,22 @@ fun StatisticsCard(
                     label = "Taken",
                     value = statistics.totalTaken.toString(),
                     icon = Icons.Default.CheckCircle,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
                 )
                 StatItem(
                     label = "Missed",
                     value = statistics.totalMissed.toString(),
                     icon = Icons.Default.Cancel,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f)
                 )
                 StatItem(
                     label = "Pending",
                     value = statistics.totalPending.toString(),
                     icon = Icons.Default.Schedule,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -131,11 +134,12 @@ private fun StatItem(
     label: String,
     value: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: androidx.compose.ui.graphics.Color
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.weight(1f)
+        modifier = modifier
     ) {
         Icon(
             imageVector = icon,

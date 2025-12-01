@@ -57,7 +57,7 @@ fun HistoryScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        when (uiState) {
+        when (val state = uiState) {
             is HistoryUiState.Loading -> {
                 Box(
                     modifier = Modifier
@@ -70,7 +70,7 @@ fun HistoryScreen(
             }
 
             is HistoryUiState.Error -> {
-                val errorMessage = uiState.message
+                val errorMessage = state.message
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -143,7 +143,6 @@ fun HistoryScreen(
             }
 
             is HistoryUiState.Loaded -> {
-                val loadedState = uiState
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -153,7 +152,7 @@ fun HistoryScreen(
                 ) {
                     // Statistics Card
                     item {
-                        StatisticsCard(statistics = loadedState.statistics)
+                        StatisticsCard(statistics = state.statistics)
                     }
 
                     // Filter Chips
