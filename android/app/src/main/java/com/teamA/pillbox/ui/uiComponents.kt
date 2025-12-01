@@ -152,7 +152,20 @@ fun DeviceListItem(result: ScanResult, onClick: (String) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
+fun PillboxControlScreen(
+    viewModel: PillboxViewModel,
+    deviceName: String,
+    scheduleViewModel: com.teamA.pillbox.viewmodel.ScheduleViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = com.teamA.pillbox.viewmodel.ScheduleViewModel.Factory(
+            androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+        )
+    ),
+    historyViewModel: com.teamA.pillbox.viewmodel.HistoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = com.teamA.pillbox.viewmodel.HistoryViewModel.Factory(
+            androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+        )
+    )
+) {
     val connectionState by viewModel.connectionState.collectAsState()
     val modelNumber by viewModel.modelNumber.collectAsState()
     val manufacturerName by viewModel.manufacturerName.collectAsState()
@@ -162,10 +175,38 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
     val lightValue2 by viewModel.lightSensorValue2.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
+    // Medication schedule and history
+    val scheduleUiState by scheduleViewModel.uiState.collectAsState()
+    val currentSchedule = when (scheduleUiState) {
+        is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> scheduleUiState.schedule
+        else -> null
+    }
+    val todayRecord = historyViewModel.getTodayRecord()
+
     LaunchedEffect(connectionState) {
         if (connectionState == Pillbox.State.READY) {
             viewModel.readDeviceInfo()
             viewModel.readBatteryLevel()
+        }
+    }
+
+    // Handle "Mark as Taken"
+    val onMarkAsTaken = {
+        currentSchedule?.let { schedule ->
+            val today = java.time.LocalDate.now()
+            val now = java.time.LocalDateTime.now()
+            
+            // Create consumption record
+            val record = com.teamA.pillbox.domain.ConsumptionRecord(
+                id = java.util.UUID.randomUUID().toString(),
+                date = today,
+                scheduledTime = schedule.time,
+                consumedTime = now,
+                status = com.teamA.pillbox.domain.ConsumptionStatus.TAKEN,
+                detectionMethod = com.teamA.pillbox.domain.DetectionMethod.MANUAL
+            )
+            
+            historyViewModel.createRecord(record)
         }
     }
 
@@ -215,10 +256,20 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
                         modelNumber = modelNumber
                     )
                 }
-                Pillbox.State.NOT_AVAILABLE -> ConnectionStatusCard(
-                    status = "Disconnected",
-                    icon = Icons.Default.Close
-                )
+                Pillbox.State.NOT_AVAILABLE -> {
+                    ConnectionStatusCard(
+                        status = "Disconnected",
+                        icon = Icons.Default.Close
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // Show medication status even when disconnected
+                    com.teamA.pillbox.ui.components.MedicationStatusCard(
+                        schedule = currentSchedule,
+                        todayRecord = todayRecord,
+                        onMarkAsTaken = onMarkAsTaken
+                    )
+                }
             }
         }
     }
