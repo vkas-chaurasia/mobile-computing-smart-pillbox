@@ -7,7 +7,7 @@ int lightSensor2 = A1;  // Light sensor #2
 int tiltSensor   = 9;
 
 bool lightSubscribed  = false;
-bool lightSubscribed2 = false; // NEW
+bool lightSubscribed2 = false;
 bool tiltSubscribed   = false;
 
 // Standard BLE Services
