@@ -3,7 +3,7 @@
 
 // Sensor Pins
 int lightSensor  = A0;  // Light sensor #1
-int lightSensor2 = A1;  // Light sensor #2 
+int lightSensor2 = A2;  // Light sensor #2 
 int tiltSensor   = 9;
 
 bool lightSubscribed  = false;
