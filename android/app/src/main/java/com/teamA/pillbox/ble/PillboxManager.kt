@@ -20,22 +20,27 @@ import no.nordicsemi.android.ble.ktx.suspend
 
 class PillboxManager(context: Context) : BleManager(context), Pillbox {
 
-    private val TAG = "PillboxManager"
+    // ***FIXED***: Renamed 'TAG' to 'tag' to follow Kotlin conventions.
+    private val tag = "PillboxManager"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    // --- Characteristics ---
     private var lightCharacteristic: BluetoothGattCharacteristic? = null
+    private var light2Characteristic: BluetoothGattCharacteristic? = null // ***NEW***
     private var tiltCharacteristic: BluetoothGattCharacteristic? = null
-
     private var basCharacteristic: BluetoothGattCharacteristic? = null
     private var disModelCharacteristic: BluetoothGattCharacteristic? = null
     private var disManufCharacteristic: BluetoothGattCharacteristic? = null
 
+    // --- State Flows ---
     private val _lightLevel = MutableStateFlow(0)
     override val lightLevel: StateFlow<Int> = _lightLevel
 
+    private val _lightLevel2 = MutableStateFlow(0) // ***NEW***
+    override val lightLevel2: StateFlow<Int> = _lightLevel2 // ***NEW***
+
     private val _tiltState = MutableStateFlow(0)
     override val tiltState: StateFlow<Int> = _tiltState
-
 
     private val _batteryLevel = MutableStateFlow(0)
     override val batteryLevel: StateFlow<Int> = _batteryLevel
@@ -62,9 +67,11 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
     override fun getMinLogPriority() = Log.VERBOSE
 
     override fun log(priority: Int, message: String) {
-        Log.println(priority, TAG, message)
+        // ***FIXED***: Updated to use the new 'tag' variable.
+        Log.println(priority, tag, message)
     }
 
+    @Suppress("DEPRECATION")
     private inner class PillboxGattCallback : BleManagerGattCallback() {
 
         @Deprecated("Required by this version of the library.", ReplaceWith(""))
@@ -76,17 +83,19 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
             }
 
             lightCharacteristic = pillboxService.getCharacteristic(PillboxSpec.LIGHT_SENSOR_CHARACTERISTIC_UUID)
+            light2Characteristic = pillboxService.getCharacteristic(PillboxSpec.LIGHT_SENSOR_2_CHARACTERISTIC_UUID)
             tiltCharacteristic = pillboxService.getCharacteristic(PillboxSpec.TILT_SENSOR_CHARACTERISTIC_UUID)
 
-            if (lightCharacteristic == null || tiltCharacteristic == null) {
-                log(Log.ERROR, "CRITICAL: Light or Tilt Characteristic not found.")
+            if (lightCharacteristic == null || light2Characteristic == null || tiltCharacteristic == null) {
+                log(Log.ERROR, "CRITICAL: A required Pillbox characteristic was not found.")
                 return false
             }
 
-            val lightIsValid = (lightCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
+            val light1IsValid = (lightCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
+            val light2IsValid = (light2Characteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
             val tiltIsValid = (tiltCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0
 
-            if (!lightIsValid || !tiltIsValid) {
+            if (!light1IsValid || !light2IsValid || !tiltIsValid) {
                 log(Log.ERROR, "CRITICAL: Pillbox characteristics have wrong properties.")
                 return false
             }
@@ -106,15 +115,21 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
             return true
         }
 
-
+        @Deprecated("Required by this version of the library.", ReplaceWith(""))
         override fun initialize() {
             lightCharacteristic?.let { char ->
                 setNotificationCallback(char)
                     .with { _, data: Data ->
                         val light = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
-                        if (_lightLevel.value != light) {
-                            _lightLevel.value = light
-                        }
+                        if (_lightLevel.value != light) { _lightLevel.value = light }
+                    }
+            }
+
+            light2Characteristic?.let { char ->
+                setNotificationCallback(char)
+                    .with { _, data: Data ->
+                        val light2 = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
+                        if (_lightLevel2.value != light2) { _lightLevel2.value = light2 }
                     }
             }
 
@@ -122,15 +137,14 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
                 setNotificationCallback(char)
                     .with { _, data: Data ->
                         val tilt = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
-                        if (_tiltState.value != tilt) {
-                            _tiltState.value = tilt
-                        }
+                        if (_tiltState.value != tilt) { _tiltState.value = tilt }
                     }
             }
 
             beginAtomicRequestQueue()
                 .add(requestMtu(247).fail { _, status -> log(Log.WARN, "MTU request failed: $status") })
-                .add(enableNotifications(lightCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Light notifications: $status") })
+                .add(enableNotifications(lightCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Light1 notifications: $status") })
+                .add(enableNotifications(light2Characteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Light2 notifications: $status") })
                 .add(enableNotifications(tiltCharacteristic!!).fail { _, status -> log(Log.ERROR, "Failed to enable Tilt notifications: $status") })
                 .done { log(Log.INFO, "Pillbox sensor notifications enabled.") }
                 .enqueue()
@@ -139,16 +153,16 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
                 setNotificationCallback(batChar)
                     .with { _, data ->
                         val battery = data.getIntValue(Data.FORMAT_UINT8, 0) ?: 0
-                        if (_batteryLevel.value != battery) {
-                            _batteryLevel.value = battery
-                        }
+                        if (_batteryLevel.value != battery) { _batteryLevel.value = battery }
                     }
                 enableNotifications(batChar).enqueue()
             }
         }
 
+        @Deprecated("Required by this version of the library.", ReplaceWith(""))
         override fun onServicesInvalidated() {
             lightCharacteristic = null
+            light2Characteristic = null
             tiltCharacteristic = null
             basCharacteristic = null
             disModelCharacteristic = null
@@ -156,6 +170,7 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
         }
     }
 
+    @Deprecated("Required by this version of the library.", ReplaceWith(""))
     override fun getGattCallback(): BleManagerGattCallback = PillboxGattCallback()
 
     suspend fun connectToPillbox(device: BluetoothDevice) {
@@ -177,7 +192,8 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
                 .timeout(20_000)
                 .suspend()
         } catch (e: Exception) {
-            Log.e(TAG, "Connection failed for ${device.address}", e)
+            // ***FIXED***: Updated to use the new 'tag' variable.
+            Log.e(tag, "Connection failed for ${device.address}", e)
         }
     }
 
@@ -193,13 +209,18 @@ class PillboxManager(context: Context) : BleManager(context), Pillbox {
                 launch { disManufCharacteristic?.let { _manufacturerName.value = readCharacteristic(it).suspend().getStringValue(0) ?: "N/A" } }
             }
             true
-        } catch (e: Exception) { false }
+        } catch (_: Exception) {
+            // Renamed 'e' to '_' to indicate it's intentionally unused.
+            false
+        }
     }
 
     override suspend fun readBattery() {
         try {
             basCharacteristic?.let { _batteryLevel.value = readCharacteristic(it).suspend().getIntValue(Data.FORMAT_UINT8, 0) ?: 0 }
-        } catch (e: Exception) { Log.e(TAG, "Failed to read battery", e) }
+        } catch (e: Exception) {
+            // ***FIXED***: Updated to use the new 'tag' variable.
+            Log.e(tag, "Failed to read battery", e)
+        }
     }
-
 }
