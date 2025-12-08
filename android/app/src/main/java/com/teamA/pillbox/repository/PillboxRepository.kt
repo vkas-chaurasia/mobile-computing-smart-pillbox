@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-
 class PillboxRepository(private val context: Context) {
 
     private var manager: PillboxManager? = null
@@ -22,6 +21,9 @@ class PillboxRepository(private val context: Context) {
 
     private val _lightLevel = MutableStateFlow(0)
     val lightLevel: StateFlow<Int> = _lightLevel
+
+    private val _lightLevel2 = MutableStateFlow(0)
+    val lightLevel2: StateFlow<Int> = _lightLevel2
 
     private val _tiltState = MutableStateFlow(0)
     val tiltState: StateFlow<Int> = _tiltState
@@ -37,7 +39,6 @@ class PillboxRepository(private val context: Context) {
 
     fun connect(device: BluetoothDevice) {
         manager?.release()
-
         val newManager = PillboxManager(context)
         manager = newManager
 
@@ -46,8 +47,8 @@ class PillboxRepository(private val context: Context) {
         }
 
         newManager.state.observe(_state)
-
         newManager.lightLevel.observe(_lightLevel)
+        newManager.lightLevel2.observe(_lightLevel2) // ***NEW***: Observe the new flow
         newManager.tiltState.observe(_tiltState)
         newManager.batteryLevel.observe(_batteryLevel)
         newManager.modelNumber.observe(_modelNumber)
@@ -60,8 +61,8 @@ class PillboxRepository(private val context: Context) {
 
         _state.value = Pillbox.State.NOT_AVAILABLE
         _lightLevel.value = 0
+        _lightLevel2.value = 0
         _tiltState.value = 0
-
         _batteryLevel.value = 0
         _modelNumber.value = "N/A"
         _manufacturerName.value = "N/A"

@@ -49,6 +49,7 @@ fun PillboxScannerScreen(
     onScanClicked: () -> Unit,
     onDeviceSelected: (device: android.bluetooth.BluetoothDevice, name: String) -> Unit
 ) {
+
     val (isScanning, scannedDevices) = when (uiState) {
         is PillboxViewModel.UiState.Scanning -> uiState.isScanningActive to uiState.scannedDevices
         else -> false to emptyList()
@@ -158,6 +159,7 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
     val batteryLevel by viewModel.batteryLevel.collectAsState()
 
     val lightValue by viewModel.lightSensorValue.collectAsState()
+    val lightValue2 by viewModel.lightSensorValue2.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
     LaunchedEffect(connectionState) {
@@ -206,7 +208,7 @@ fun PillboxControlScreen(viewModel: PillboxViewModel, deviceName: String) {
                         batteryLevel = batteryLevel
                     )
                     Spacer(Modifier.height(24.dp))
-                    SensorDataCard(lightValue = lightValue, tiltValue = tiltValue)
+                    SensorDataCard(lightValue = lightValue, lightValue2 = lightValue2, tiltValue = tiltValue)
                     Spacer(Modifier.height(24.dp))
                     AuxiliaryDataCard(
                         manufacturerName = manufacturerName,
@@ -278,7 +280,7 @@ fun AuxiliaryDataCard(
 }
 
 @Composable
-fun SensorDataCard(lightValue: Int, tiltValue: Int) {
+fun SensorDataCard(lightValue: Int, lightValue2: Int, tiltValue: Int) {
     val tiltText = when (tiltValue) {
         1 -> "TILTED (Pillbox Moved)"
         0 -> "STABLE"
@@ -296,12 +298,25 @@ fun SensorDataCard(lightValue: Int, tiltValue: Int) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.height(8.dp))
-            DataRow("Light Exposure:", "$lightValue %", Icons.Default.Info)
-            DataRow("Tilt Sensor:", tiltText, if (tiltValue == 1) Icons.Default.Warning else Icons.Default.Check)
+            Spacer(Modifier.height(16.dp))
+
+            // Compartment 1
+            Text("Compartment 1", style = MaterialTheme.typography.titleMedium)
+            DataRow("Light Exposure:", "$lightValue %", Icons.Default.WbSunny)
+
+            Spacer(Modifier.height(16.dp))
+
+            // Compartment 2
+            Text("Compartment 2", style = MaterialTheme.typography.titleMedium)
+            DataRow("Light Exposure:", "$lightValue2 %", Icons.Default.WbSunny)
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            DataRow("Pillbox State:", tiltText, if (tiltValue == 1) Icons.Default.Warning else Icons.Default.Check)
         }
     }
 }
+
 
 @Composable
 fun DataRow(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier) {

@@ -33,12 +33,17 @@ class PillboxViewModel(
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    // --- These flows come directly from the repository ---
     val connectionState: StateFlow<Pillbox.State> = repository.state
     val batteryLevel: StateFlow<Int> = repository.batteryLevel
     val modelNumber: StateFlow<String> = repository.modelNumber
     val manufacturerName: StateFlow<String> = repository.manufacturerName
 
     val lightSensorValue: StateFlow<Int> = repository.lightLevel
+
+    // ***FIXED***: Add the new lightSensorValue2 flow from the repository.
+    val lightSensorValue2: StateFlow<Int> = repository.lightLevel2
+
     val tiltSensorValue: StateFlow<Int> = repository.tiltState
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -46,6 +51,7 @@ class PillboxViewModel(
     }
 
     init {
+        // Keep the scanner state in sync with the UI State
         viewModelScope.launch {
             scanner.scannedDevices.collect { devices ->
                 if (_uiState.value is UiState.Scanning) {
@@ -62,6 +68,8 @@ class PillboxViewModel(
             }
         }
     }
+
+    // --- The rest of the ViewModel is unchanged ---
 
     fun startScan(permissionHelper: BlePermissionHelper) {
         if (!permissionHelper.hasRequiredPermissions()) {
