@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.teamA.pillbox.viewmodel.PillboxViewModel
 import com.teamA.pillbox.ble.Pillbox
+import com.teamA.pillbox.domain.BoxState
+import com.teamA.pillbox.domain.CompartmentState
 import androidx.compose.material3.Typography
 
 
@@ -176,13 +178,31 @@ fun PillboxControlScreen(
     val lightValue2 by viewModel.lightSensorValue2.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
-    // Medication schedule and history
+    // Medication schedule and history (placeholder - will be updated when repositories are connected)
     val scheduleUiState by scheduleViewModel.uiState.collectAsState()
     val currentSchedule = when (val state = scheduleUiState) {
         is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> state.schedule
         else -> null
     }
     val todayRecord = historyViewModel.getTodayRecord()
+
+    // Placeholder: Get schedules for each compartment (will be replaced with real data later)
+    // For now, we'll use the current schedule if it matches the compartment, otherwise null
+    val schedule1 = currentSchedule?.takeIf { it.compartmentNumber == 1 }
+    val schedule2 = currentSchedule?.takeIf { it.compartmentNumber == 2 }
+    
+    // Placeholder: Get today's records per compartment (will be replaced with real data later)
+    val todayRecord1 = todayRecord?.takeIf { it.compartmentNumber == 1 }
+    val todayRecord2 = todayRecord?.takeIf { it.compartmentNumber == 2 }
+
+    // Placeholder: Compartment states (will be replaced with real data from SettingsRepository later)
+    val compartment1State = remember { mutableStateOf(CompartmentState.LOADED) }
+    val compartment2State = remember { mutableStateOf(CompartmentState.LOADED) }
+
+    // Determine box state from tilt sensor (placeholder logic)
+    val boxState = remember(tiltValue) {
+        if (tiltValue >= 1) BoxState.OPEN else BoxState.CLOSED
+    }
 
     LaunchedEffect(connectionState) {
         if (connectionState == Pillbox.State.READY) {
@@ -191,15 +211,38 @@ fun PillboxControlScreen(
         }
     }
 
-    // Handle "Mark as Taken"
-    val onMarkAsTaken: () -> Unit = {
-        currentSchedule?.let { schedule ->
+    // Handle "Mark as Taken" for compartment 1
+    val onMarkAsTaken1: () -> Unit = {
+        schedule1?.let { schedule ->
             val today = java.time.LocalDate.now()
             val now = java.time.LocalDateTime.now()
             
             // Create consumption record
             val record = com.teamA.pillbox.domain.ConsumptionRecord(
                 id = java.util.UUID.randomUUID().toString(),
+                compartmentNumber = 1,
+                date = today,
+                scheduledTime = schedule.time,
+                consumedTime = now,
+                status = com.teamA.pillbox.domain.ConsumptionStatus.TAKEN,
+                detectionMethod = com.teamA.pillbox.domain.DetectionMethod.MANUAL
+            )
+            
+            historyViewModel.createRecord(record)
+        }
+        Unit
+    }
+
+    // Handle "Mark as Taken" for compartment 2
+    val onMarkAsTaken2: () -> Unit = {
+        schedule2?.let { schedule ->
+            val today = java.time.LocalDate.now()
+            val now = java.time.LocalDateTime.now()
+            
+            // Create consumption record
+            val record = com.teamA.pillbox.domain.ConsumptionRecord(
+                id = java.util.UUID.randomUUID().toString(),
+                compartmentNumber = 2,
                 date = today,
                 scheduledTime = schedule.time,
                 consumedTime = now,
@@ -251,6 +294,33 @@ fun PillboxControlScreen(
                         batteryLevel = batteryLevel
                     )
                     Spacer(Modifier.height(24.dp))
+                    
+                    // Box State Indicator
+                    com.teamA.pillbox.ui.components.BoxStateIndicator(boxState = boxState)
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // Compartment 1 Card
+                    com.teamA.pillbox.ui.components.CompartmentCard(
+                        compartmentNumber = 1,
+                        compartmentState = compartment1State.value,
+                        lightSensorValue = lightValue,
+                        schedule = schedule1,
+                        todayRecord = todayRecord1,
+                        onMarkAsTaken = onMarkAsTaken1
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // Compartment 2 Card
+                    com.teamA.pillbox.ui.components.CompartmentCard(
+                        compartmentNumber = 2,
+                        compartmentState = compartment2State.value,
+                        lightSensorValue = lightValue2,
+                        schedule = schedule2,
+                        todayRecord = todayRecord2,
+                        onMarkAsTaken = onMarkAsTaken2
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    
                     SensorDataCard(lightValue = lightValue, lightValue2 = lightValue2, tiltValue = tiltValue)
                     Spacer(Modifier.height(24.dp))
                     AuxiliaryDataCard(
@@ -265,11 +335,29 @@ fun PillboxControlScreen(
                     )
                     Spacer(Modifier.height(24.dp))
                     
-                    // Show medication status even when disconnected
-                    com.teamA.pillbox.ui.components.MedicationStatusCard(
-                        schedule = currentSchedule,
-                        todayRecord = todayRecord,
-                        onMarkAsTaken = onMarkAsTaken
+                    // Box State Indicator (placeholder when disconnected)
+                    com.teamA.pillbox.ui.components.BoxStateIndicator(boxState = BoxState.CLOSED)
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // Compartment 1 Card (placeholder data when disconnected)
+                    com.teamA.pillbox.ui.components.CompartmentCard(
+                        compartmentNumber = 1,
+                        compartmentState = compartment1State.value,
+                        lightSensorValue = 0, // N/A when disconnected
+                        schedule = schedule1,
+                        todayRecord = todayRecord1,
+                        onMarkAsTaken = onMarkAsTaken1
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // Compartment 2 Card (placeholder data when disconnected)
+                    com.teamA.pillbox.ui.components.CompartmentCard(
+                        compartmentNumber = 2,
+                        compartmentState = compartment2State.value,
+                        lightSensorValue = 0, // N/A when disconnected
+                        schedule = schedule2,
+                        todayRecord = todayRecord2,
+                        onMarkAsTaken = onMarkAsTaken2
                     )
                 }
             }
