@@ -34,9 +34,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teamA.pillbox.ble.PillboxScanner
+import com.teamA.pillbox.navigation.PillboxNavGraph
 import com.teamA.pillbox.repository.PillboxRepository
-import com.teamA.pillbox.ui.PillboxControlScreen
-import com.teamA.pillbox.ui.PillboxScannerScreen
 import com.teamA.pillbox.ui.PillboxTheme
 import com.teamA.pillbox.viewmodel.PillboxViewModel
 
@@ -58,7 +57,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    PillboxApp(
+                    PillboxNavGraph(
                         viewModel = viewModel,
                         permissionHelper = permissionHelper
                     )
@@ -102,70 +101,4 @@ class BlePermissionHelper(private val context: Context) {
 }
 
 
-@Composable
-fun PillboxApp(viewModel: PillboxViewModel, permissionHelper: BlePermissionHelper) {
-    val uiState by viewModel.uiState.collectAsState()
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner, viewModel, permissionHelper) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.checkBluetoothAndPermissions(permissionHelper)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        viewModel.onPermissionsResult(permissions.all { it.value }, permissionHelper)
-    }
-
-    val onScanClicked = {
-        if (permissionHelper.hasRequiredPermissions()) {
-            viewModel.startScan(permissionHelper)
-        } else {
-            permissionLauncher.launch(permissionHelper.getRequiredPermissions().toTypedArray())
-        }
-    }
-
-    when (val state = uiState) {
-        is PillboxViewModel.UiState.BluetoothDisabled -> {
-            BluetoothDisabledScreen(onRequestEnable = { permissionHelper.requestEnableBluetooth() })
-        }
-        is PillboxViewModel.UiState.Connected -> {
-            PillboxControlScreen(
-                viewModel = viewModel,
-                deviceName = state.deviceName ?: "Pillbox"
-            )
-        }
-        else -> {
-            PillboxScannerScreen(
-                uiState = state,
-                onScanClicked = onScanClicked,
-                onDeviceSelected = { device, name -> viewModel.onDeviceSelected(device, name) }
-            )
-        }
-    }
-}
-
-@Composable
-fun BluetoothDisabledScreen(onRequestEnable: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Bluetooth is Disabled", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        Text("This app requires Bluetooth to be enabled to scan for the Pillbox.", textAlign = TextAlign.Center)
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onRequestEnable) {
-            Text("Enable Bluetooth")
-        }
-    }
-}
+// Note: PillboxApp logic has been moved to PillboxNavGraph in navigation package

@@ -1,0 +1,302 @@
+package com.teamA.pillbox.navigation
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.teamA.pillbox.BlePermissionHelper
+import com.teamA.pillbox.ui.*
+import com.teamA.pillbox.viewmodel.PillboxViewModel
+
+/**
+ * Main navigation graph for the app.
+ * Handles navigation between all screens and bottom navigation bar.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PillboxNavGraph(
+    viewModel: PillboxViewModel,
+    permissionHelper: BlePermissionHelper,
+    startDestination: String = NavigationRoutes.WELCOME
+) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Determine if we should show bottom navigation
+    val showBottomNav = currentRoute in listOf(
+        NavigationRoutes.DASHBOARD,
+        NavigationRoutes.SCHEDULE,
+        NavigationRoutes.HISTORY,
+        NavigationRoutes.SETTINGS
+    )
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                BottomNavigationBar(
+                    currentRoute = currentRoute ?: "",
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            // Pop up to the start destination of the graph to
+                            // avoid building up a large stack of destinations
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            // Avoid multiple copies of the same destination when
+                            // reselecting the same item
+                            launchSingleTop = true
+                            // Restore state when reselecting a previously selected item
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            // Welcome Screen
+            composable(NavigationRoutes.WELCOME) {
+                WelcomeScreen(
+                    onGetStarted = {
+                        navController.navigate(NavigationRoutes.DASHBOARD) {
+                            popUpTo(NavigationRoutes.WELCOME) { inclusive = true }
+                        }
+                    },
+                    onScanForDevice = {
+                        navController.navigate(NavigationRoutes.SCANNER)
+                    },
+                    isDeviceConnected = viewModel.uiState.value is PillboxViewModel.UiState.Connected
+                )
+            }
+
+            // Scanner Screen
+            composable(NavigationRoutes.SCANNER) {
+                val uiState by viewModel.uiState.collectAsState()
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    viewModel.onPermissionsResult(permissions.all { it.value }, permissionHelper)
+                }
+
+                val onScanClicked = {
+                    if (permissionHelper.hasRequiredPermissions()) {
+                        viewModel.startScan(permissionHelper)
+                    } else {
+                        permissionLauncher.launch(permissionHelper.getRequiredPermissions().toTypedArray())
+                    }
+                }
+
+                when (val state = uiState) {
+                    is PillboxViewModel.UiState.BluetoothDisabled -> {
+                        BluetoothDisabledScreen(
+                            onRequestEnable = { permissionHelper.requestEnableBluetooth() }
+                        )
+                    }
+                    is PillboxViewModel.UiState.Connected -> {
+                        // Navigate to dashboard when connected
+                        LaunchedEffect(Unit) {
+                            navController.navigate(NavigationRoutes.DASHBOARD) {
+                                popUpTo(NavigationRoutes.SCANNER) { inclusive = true }
+                            }
+                        }
+                    }
+                    else -> {
+                        PillboxScannerScreen(
+                            uiState = state,
+                            onScanClicked = onScanClicked,
+                            onDeviceSelected = { device, name ->
+                                viewModel.onDeviceSelected(device, name)
+                                // Navigation to dashboard will happen automatically via LaunchedEffect above
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Dashboard Screen
+            composable(NavigationRoutes.DASHBOARD) {
+                val uiState by viewModel.uiState.collectAsState()
+                when (val state = uiState) {
+                    is PillboxViewModel.UiState.Connected -> {
+                        PillboxControlScreen(
+                            viewModel = viewModel,
+                            deviceName = state.deviceName ?: "Pillbox"
+                        )
+                    }
+                    else -> {
+                        // Show placeholder or navigate to scanner
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "No device connected",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    navController.navigate(NavigationRoutes.SCANNER)
+                                }
+                            ) {
+                                Text("Scan for Device")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Schedule Screen
+            composable(NavigationRoutes.SCHEDULE) {
+                ScheduleScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // History Screen
+            composable(NavigationRoutes.HISTORY) {
+                HistoryScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // Settings Screen
+            composable(NavigationRoutes.SETTINGS) {
+                // Placeholder for Settings Screen (will be created in Step 7)
+                SettingsScreenPlaceholder(
+                    viewModel = viewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Bottom Navigation Bar component.
+ */
+@Composable
+fun BottomNavigationBar(
+    currentRoute: String,
+    onNavigate: (String) -> Unit
+) {
+    NavigationBar {
+        val items = listOf(
+            BottomNavItem(
+                route = NavigationRoutes.DASHBOARD,
+                label = "Dashboard",
+                icon = Icons.Default.Home
+            ),
+            BottomNavItem(
+                route = NavigationRoutes.SCHEDULE,
+                label = "Schedule",
+                icon = Icons.Default.Schedule
+            ),
+            BottomNavItem(
+                route = NavigationRoutes.HISTORY,
+                label = "History",
+                icon = Icons.Default.History
+            ),
+            BottomNavItem(
+                route = NavigationRoutes.SETTINGS,
+                label = "Settings",
+                icon = Icons.Default.Settings
+            )
+        )
+
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label
+                    )
+                },
+                label = { Text(item.label) },
+                selected = currentRoute == item.route,
+                onClick = { onNavigate(item.route) }
+            )
+        }
+    }
+}
+
+/**
+ * Data class for bottom navigation items.
+ */
+data class BottomNavItem(
+    val route: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+/**
+ * Placeholder Settings Screen (will be replaced in Step 7).
+ */
+@Composable
+fun SettingsScreenPlaceholder(
+    viewModel: PillboxViewModel,
+    onNavigateBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Settings Screen",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Coming soon...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
