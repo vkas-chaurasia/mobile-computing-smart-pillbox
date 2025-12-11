@@ -6,12 +6,18 @@ import java.time.LocalTime
 
 /**
  * Record of medication consumption for a specific scheduled dose.
+ * Tracks consumption per compartment.
  */
 data class ConsumptionRecord(
     /**
      * Unique identifier for this record.
      */
     val id: String,
+    
+    /**
+     * Compartment number (1 or 2) from which the medication was taken.
+     */
+    val compartmentNumber: Int,
     
     /**
      * Date for which this consumption record applies.
@@ -41,6 +47,8 @@ data class ConsumptionRecord(
     val detectionMethod: DetectionMethod?
 ) {
     init {
+        require(compartmentNumber in 1..2) { "Compartment number must be 1 or 2" }
+        
         // Validation: If status is TAKEN, consumedTime and detectionMethod should be set
         if (status == ConsumptionStatus.TAKEN) {
             require(consumedTime != null) { "Consumed time must be set when status is TAKEN" }

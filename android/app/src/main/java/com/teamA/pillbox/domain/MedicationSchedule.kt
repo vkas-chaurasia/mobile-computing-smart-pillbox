@@ -5,13 +5,18 @@ import java.time.LocalTime
 
 /**
  * Medication schedule configuration.
- * Represents a single medication schedule (one pill per day).
+ * Represents a single medication schedule (one pill per day) for a specific compartment.
  */
 data class MedicationSchedule(
     /**
      * Unique identifier for this schedule.
      */
     val id: String,
+    
+    /**
+     * Compartment number (1 or 2) for which this schedule applies.
+     */
+    val compartmentNumber: Int,
     
     /**
      * Optional medication name.
@@ -48,6 +53,7 @@ data class MedicationSchedule(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     init {
+        require(compartmentNumber in 1..2) { "Compartment number must be 1 or 2" }
         require(daysOfWeek.isNotEmpty()) { "At least one day must be selected" }
         require(pillCount > 0) { "Pill count must be positive" }
     }
