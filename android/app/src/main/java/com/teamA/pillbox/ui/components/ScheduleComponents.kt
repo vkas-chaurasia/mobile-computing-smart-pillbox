@@ -1,5 +1,6 @@
 package com.teamA.pillbox.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -141,6 +142,68 @@ fun TimePickerDialog(
 }
 
 /**
+ * Compartment selector using radio buttons.
+ * Allows selection of compartment 1 or 2.
+ */
+@Composable
+fun CompartmentSelector(
+    selectedCompartment: Int?,
+    onCompartmentSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Select Compartment",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Compartment 1 Radio Button
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedCompartment == 1,
+                    onClick = { onCompartmentSelected(1) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Compartment 1",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+            
+            // Compartment 2 Radio Button
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedCompartment == 2,
+                    onClick = { onCompartmentSelected(2) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Compartment 2",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+    }
+}
+
+/**
  * Current schedule display card.
  */
 @Composable
@@ -157,12 +220,31 @@ fun CurrentScheduleCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = "Current Schedule",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Current Schedule",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                // Compartment badge
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = "Compartment ${schedule.compartmentNumber}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(
@@ -222,6 +304,121 @@ fun CurrentScheduleCard(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Display schedules grouped by compartment.
+ * Shows all schedules in cards grouped by compartment number.
+ */
+@Composable
+fun SchedulesGroupedByCompartment(
+    schedules: List<com.teamA.pillbox.domain.MedicationSchedule>,
+    onScheduleClick: ((com.teamA.pillbox.domain.MedicationSchedule) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Group schedules by compartment
+        val schedulesByCompartment = schedules.groupBy { it.compartmentNumber }
+        
+        // Compartment 1
+        if (schedulesByCompartment.containsKey(1)) {
+            Text(
+                text = "Compartment 1",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            schedulesByCompartment[1]?.forEach { schedule ->
+                ScheduleCard(
+                    schedule = schedule,
+                    onClick = onScheduleClick
+                )
+            }
+        }
+        
+        // Compartment 2
+        if (schedulesByCompartment.containsKey(2)) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Compartment 2",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            schedulesByCompartment[2]?.forEach { schedule ->
+                ScheduleCard(
+                    schedule = schedule,
+                    onClick = onScheduleClick
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Individual schedule card for display in grouped list.
+ */
+@Composable
+private fun ScheduleCard(
+    schedule: com.teamA.pillbox.domain.MedicationSchedule,
+    onClick: ((com.teamA.pillbox.domain.MedicationSchedule) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable { onClick(schedule) }
+                } else {
+                    Modifier
+                }
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = schedule.medicationName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = "Comp ${schedule.compartmentNumber}",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            
+            Text(
+                text = "Days: ${schedule.daysOfWeek.sortedBy { it.value }.joinToString(", ") { it.name.take(3) }}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Text(
+                text = "Time: ${String.format("%02d:%02d", schedule.time.hour, schedule.time.minute)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }

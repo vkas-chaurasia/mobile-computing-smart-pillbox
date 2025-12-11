@@ -13,9 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.teamA.pillbox.ui.components.CurrentScheduleCard
-import com.teamA.pillbox.ui.components.DaysOfWeekSelector
-import com.teamA.pillbox.ui.components.TimePickerButton
+import com.teamA.pillbox.ui.components.*
 import com.teamA.pillbox.viewmodel.ScheduleUiState
 import com.teamA.pillbox.viewmodel.ScheduleViewModel
 
@@ -31,10 +29,16 @@ fun ScheduleScreen(
     onNavigateBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedCompartment by viewModel.selectedCompartment.collectAsState()
     val selectedDays by viewModel.selectedDays.collectAsState()
     val selectedTime by viewModel.selectedTime.collectAsState()
     val medicationName by viewModel.medicationName.collectAsState()
     val isValid by viewModel.isValid.collectAsState()
+    
+    // Get all schedules for display (placeholder - will be replaced with Flow from repository)
+    val allSchedules = remember(uiState) { 
+        viewModel.getAllSchedules() 
+    }
     
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -58,7 +62,7 @@ fun ScheduleScreen(
                 actions = {
                     IconButton(
                         onClick = { showResetDialog = true },
-                        enabled = uiState is ScheduleUiState.Loaded
+                        enabled = allSchedules.isNotEmpty()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -78,50 +82,64 @@ fun ScheduleScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Current Schedule Card (if exists)
-            when (val state = uiState) {
-                is ScheduleUiState.Loaded -> {
-                    CurrentScheduleCard(schedule = state.schedule)
-                }
-                is ScheduleUiState.Empty -> {
-                    // Empty state message
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
+            // All Schedules Grouped by Compartment
+            if (allSchedules.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.secondary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "No schedule set",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Configure your medication schedule below",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
+                        Text(
+                            text = "All Schedules",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SchedulesGroupedByCompartment(
+                            schedules = allSchedules
+                        )
                     }
                 }
-                is ScheduleUiState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentWidth(Alignment.CenterHorizontally)
+            } else {
+                // Empty state message
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No schedules set",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Configure your medication schedule below",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
                 }
+            }
+
+            // Error state
+            when (val state = uiState) {
                 is ScheduleUiState.Error -> {
                     val errorMessage = state.message
                     Card(
@@ -137,6 +155,7 @@ fun ScheduleScreen(
                         )
                     }
                 }
+                else -> { /* Other states handled above */ }
             }
 
             // Schedule Form
@@ -155,6 +174,12 @@ fun ScheduleScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
+                    )
+
+                    // Compartment Selector
+                    CompartmentSelector(
+                        selectedCompartment = selectedCompartment,
+                        onCompartmentSelected = viewModel::updateSelectedCompartment
                     )
 
                     // Medication Name (Optional)
@@ -212,9 +237,14 @@ fun ScheduleScreen(
                     }
 
                     // Validation message
-                    if (!isValid && (selectedDays.isNotEmpty() || selectedTime != null)) {
+                    if (!isValid && (selectedCompartment != null || selectedDays.isNotEmpty() || selectedTime != null)) {
+                        val missingFields = mutableListOf<String>()
+                        if (selectedCompartment == null) missingFields.add("compartment")
+                        if (selectedDays.isEmpty()) missingFields.add("days")
+                        if (selectedTime == null) missingFields.add("time")
+                        
                         Text(
-                            text = "Please select at least one day and a time",
+                            text = "Please select: ${missingFields.joinToString(", ")}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(top = 4.dp)

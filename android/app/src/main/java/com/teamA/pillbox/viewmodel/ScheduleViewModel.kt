@@ -27,12 +27,17 @@ class ScheduleViewModel(
     private val TAG = "ScheduleViewModel"
 
     // In-memory storage (will be replaced with repository)
+    // Placeholder: Store multiple schedules (will be replaced with repository)
+    private val _allSchedules = mutableListOf<MedicationSchedule>()
     private var _currentSchedule: MedicationSchedule? = null
 
     private val _uiState = MutableStateFlow<ScheduleUiState>(ScheduleUiState.Empty)
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
 
     // Form fields state
+    private val _selectedCompartment = MutableStateFlow<Int?>(null)
+    val selectedCompartment: StateFlow<Int?> = _selectedCompartment.asStateFlow()
+
     private val _selectedDays = MutableStateFlow<Set<DayOfWeek>>(emptySet())
     val selectedDays: StateFlow<Set<DayOfWeek>> = _selectedDays.asStateFlow()
 
@@ -51,20 +56,41 @@ class ScheduleViewModel(
     }
 
     /**
-     * Load existing schedule from in-memory storage.
+     * Load existing schedules from in-memory storage.
      * Later, this will load from ScheduleRepository.
      */
     fun loadSchedule() {
-        _currentSchedule?.let { schedule ->
-            _selectedDays.value = schedule.daysOfWeek
-            _selectedTime.value = schedule.time
-            _medicationName.value = schedule.medicationName
-            _uiState.value = ScheduleUiState.Loaded(schedule)
-            validateSchedule()
-        } ?: run {
-            _uiState.value = ScheduleUiState.Empty
-            _isValid.value = false
+        // Placeholder: Load all schedules (will be replaced with repository)
+        if (_allSchedules.isNotEmpty()) {
+            _uiState.value = ScheduleUiState.Loaded(_allSchedules.first())
+        } else {
+            _currentSchedule?.let { schedule ->
+                _selectedCompartment.value = schedule.compartmentNumber
+                _selectedDays.value = schedule.daysOfWeek
+                _selectedTime.value = schedule.time
+                _medicationName.value = schedule.medicationName
+                _uiState.value = ScheduleUiState.Loaded(schedule)
+                validateSchedule()
+            } ?: run {
+                _uiState.value = ScheduleUiState.Empty
+                _isValid.value = false
+            }
         }
+    }
+
+    /**
+     * Get all schedules (placeholder - will be replaced with repository).
+     */
+    fun getAllSchedules(): List<MedicationSchedule> {
+        return _allSchedules.ifEmpty { _currentSchedule?.let { listOf(it) } ?: emptyList() }
+    }
+
+    /**
+     * Update selected compartment.
+     */
+    fun updateSelectedCompartment(compartmentNumber: Int) {
+        _selectedCompartment.value = compartmentNumber
+        validateSchedule()
     }
 
     /**
@@ -93,15 +119,20 @@ class ScheduleViewModel(
     /**
      * Validate current form state.
      * Schedule is valid if:
+     * - Compartment is selected (1 or 2)
      * - At least one day is selected
      * - Time is selected
      */
     fun validateSchedule() {
+        val compartmentValid = _selectedCompartment.value in 1..2
         val daysValid = _selectedDays.value.isNotEmpty()
         val timeValid = _selectedTime.value != null
         
-        _isValid.value = daysValid && timeValid
+        _isValid.value = compartmentValid && daysValid && timeValid
         
+        if (!compartmentValid) {
+            Log.d(TAG, "Validation failed: No compartment selected")
+        }
         if (!daysValid) {
             Log.d(TAG, "Validation failed: No days selected")
         }
@@ -120,6 +151,10 @@ class ScheduleViewModel(
             return
         }
 
+        val compartmentNumber = _selectedCompartment.value ?: run {
+            Log.e(TAG, "Cannot save: Compartment is null")
+            return
+        }
         val days = _selectedDays.value
         val time = _selectedTime.value ?: run {
             Log.e(TAG, "Cannot save: Time is null")
@@ -130,6 +165,7 @@ class ScheduleViewModel(
         try {
             val schedule = MedicationSchedule(
                 id = _currentSchedule?.id ?: UUID.randomUUID().toString(),
+                compartmentNumber = compartmentNumber,
                 medicationName = name,
                 daysOfWeek = days,
                 time = time,
@@ -139,6 +175,16 @@ class ScheduleViewModel(
             )
 
             // Save to in-memory storage (will be replaced with repository)
+            // Placeholder: Add to list of schedules
+            val existingIndex = _allSchedules.indexOfFirst { 
+                it.id == schedule.id || 
+                (it.compartmentNumber == schedule.compartmentNumber && it.time == schedule.time)
+            }
+            if (existingIndex >= 0) {
+                _allSchedules[existingIndex] = schedule
+            } else {
+                _allSchedules.add(schedule)
+            }
             _currentSchedule = schedule
             _uiState.value = ScheduleUiState.Loaded(schedule)
             
@@ -155,6 +201,7 @@ class ScheduleViewModel(
      */
     fun resetSchedule() {
         _currentSchedule = null
+        _selectedCompartment.value = null
         _selectedDays.value = emptySet()
         _selectedTime.value = null
         _medicationName.value = "Medication"
