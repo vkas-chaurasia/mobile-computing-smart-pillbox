@@ -14,10 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.teamA.pillbox.domain.AppTheme
 import com.teamA.pillbox.domain.CompartmentState
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teamA.pillbox.ui.components.*
 import com.teamA.pillbox.viewmodel.PillboxViewModel
-import com.teamA.pillbox.viewmodel.SettingsViewModel
 
 /**
  * Settings Screen - Screen 5
@@ -26,27 +24,26 @@ import com.teamA.pillbox.viewmodel.SettingsViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    pillboxViewModel: PillboxViewModel,
-    settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(
-        androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
-    )),
+    viewModel: PillboxViewModel,
     onNavigateBack: (() -> Unit)? = null
 ) {
-    // Get settings from SettingsViewModel
-    val selectedTheme by settingsViewModel.theme.collectAsState()
-    val sensorThresholds by settingsViewModel.sensorThresholds.collectAsState()
-    val compartment1State by settingsViewModel.compartment1State.collectAsState()
-    val compartment2State by settingsViewModel.compartment2State.collectAsState()
-    val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsState()
+    // Placeholder state (will be replaced with SettingsViewModel later)
+    val selectedTheme = remember { mutableStateOf(AppTheme.SYSTEM) }
+    val lightThreshold1 = remember { mutableStateOf(40) }
+    val lightThreshold2 = remember { mutableStateOf(40) }
+    val tiltThreshold = remember { mutableStateOf(1) }
+    val compartment1State = remember { mutableStateOf(CompartmentState.LOADED) }
+    val compartment2State = remember { mutableStateOf(CompartmentState.LOADED) }
+    val notificationsEnabled = remember { mutableStateOf(true) }
     
     // Get live sensor values from PillboxViewModel
-    val lightValue1 by pillboxViewModel.lightSensorValue.collectAsState()
-    val lightValue2 by pillboxViewModel.lightSensorValue2.collectAsState()
-    val tiltValue by pillboxViewModel.tiltSensorValue.collectAsState()
-    val connectionState by pillboxViewModel.connectionState.collectAsState()
-    val batteryLevel by pillboxViewModel.batteryLevel.collectAsState()
-    val modelNumber by pillboxViewModel.modelNumber.collectAsState()
-    val manufacturerName by pillboxViewModel.manufacturerName.collectAsState()
+    val lightValue1 by viewModel.lightSensorValue.collectAsState()
+    val lightValue2 by viewModel.lightSensorValue2.collectAsState()
+    val tiltValue by viewModel.tiltSensorValue.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
+    val batteryLevel by viewModel.batteryLevel.collectAsState()
+    val modelNumber by viewModel.modelNumber.collectAsState()
+    val manufacturerName by viewModel.manufacturerName.collectAsState()
     
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -86,40 +83,40 @@ fun SettingsScreen(
                 batteryLevel = if (connectionState == com.teamA.pillbox.ble.Pillbox.State.READY) batteryLevel else null,
                 manufacturerName = manufacturerName,
                 modelNumber = modelNumber,
-                onDisconnect = { pillboxViewModel.disconnect() }
+                onDisconnect = { viewModel.disconnect() }
             )
 
             // Theme Selector
             ThemeSelectorCard(
-                selectedTheme = selectedTheme,
-                onThemeSelected = { settingsViewModel.setTheme(it) }
+                selectedTheme = selectedTheme.value,
+                onThemeSelected = { selectedTheme.value = it }
             )
 
             // Sensor Thresholds Section
             SensorThresholdsCard(
-                lightThreshold1 = sensorThresholds.lightThreshold1,
-                lightThreshold2 = sensorThresholds.lightThreshold2,
-                tiltThreshold = sensorThresholds.tiltThreshold,
+                lightThreshold1 = lightThreshold1.value,
+                lightThreshold2 = lightThreshold2.value,
+                tiltThreshold = tiltThreshold.value,
                 lightValue1 = lightValue1,
                 lightValue2 = lightValue2,
                 tiltValue = tiltValue,
-                onLightThreshold1Changed = { settingsViewModel.setLightThreshold1(it) },
-                onLightThreshold2Changed = { settingsViewModel.setLightThreshold2(it) },
-                onTiltThresholdChanged = { settingsViewModel.setTiltThreshold(it) }
+                onLightThreshold1Changed = { lightThreshold1.value = it },
+                onLightThreshold2Changed = { lightThreshold2.value = it },
+                onTiltThresholdChanged = { tiltThreshold.value = it }
             )
 
             // Compartment States Section
             CompartmentStatesCard(
-                compartment1State = compartment1State,
-                compartment2State = compartment2State,
-                onCompartment1StateChanged = { settingsViewModel.setCompartmentState(1, it) },
-                onCompartment2StateChanged = { settingsViewModel.setCompartmentState(2, it) }
+                compartment1State = compartment1State.value,
+                compartment2State = compartment2State.value,
+                onCompartment1StateChanged = { compartment1State.value = it },
+                onCompartment2StateChanged = { compartment2State.value = it }
             )
 
             // Notification Settings
             NotificationSettingsCard(
-                notificationsEnabled = notificationsEnabled,
-                onNotificationsEnabledChanged = { settingsViewModel.setNotificationsEnabled(it) }
+                notificationsEnabled = notificationsEnabled.value,
+                onNotificationsEnabledChanged = { notificationsEnabled.value = it }
             )
 
             // About Section
@@ -156,7 +153,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        settingsViewModel.resetAllData()
+                        // Placeholder: Reset logic will be implemented when repositories are connected
                         showResetDialog = false
                     }
                 ) {
