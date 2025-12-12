@@ -191,7 +191,7 @@ fun PillboxNavGraph(
             // Settings Screen
             composable(NavigationRoutes.SETTINGS) {
                 com.teamA.pillbox.ui.SettingsScreen(
-                    viewModel = viewModel,
+                    pillboxViewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()
                     }
