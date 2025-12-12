@@ -187,8 +187,7 @@ fun PillboxNavGraph(
 
             // Settings Screen
             composable(NavigationRoutes.SETTINGS) {
-                // Placeholder for Settings Screen (will be created in Step 7)
-                SettingsScreenPlaceholder(
+                com.teamA.pillbox.ui.SettingsScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
                         navController.popBackStack()
@@ -256,47 +255,3 @@ data class BottomNavItem(
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 )
 
-/**
- * Placeholder Settings Screen (will be replaced in Step 7).
- */
-@Composable
-fun SettingsScreenPlaceholder(
-    viewModel: PillboxViewModel,
-    onNavigateBack: () -> Unit
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "Settings Screen",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Coming soon...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-        }
-    }
-}
