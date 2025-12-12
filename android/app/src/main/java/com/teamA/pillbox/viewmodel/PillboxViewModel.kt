@@ -11,33 +11,16 @@ import androidx.lifecycle.viewModelScope
 import com.teamA.pillbox.BlePermissionHelper
 import com.teamA.pillbox.ble.Pillbox
 import com.teamA.pillbox.ble.PillboxScanner
-import com.teamA.pillbox.domain.BoxState
-import com.teamA.pillbox.domain.ConsumptionRecord
-import com.teamA.pillbox.domain.ConsumptionStatus
-import com.teamA.pillbox.domain.DetectionMethod
-import com.teamA.pillbox.domain.MedicationSchedule
-import com.teamA.pillbox.domain.SensorEvent
-import com.teamA.pillbox.repository.HistoryRepository
 import com.teamA.pillbox.repository.PillboxRepository
-import com.teamA.pillbox.repository.ScheduleRepository
-import com.teamA.pillbox.repository.SettingsRepository
-import com.teamA.pillbox.sensor.PillDetectionLogic
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.util.UUID
 
 class PillboxViewModel(
     application: Application,
     val repository: PillboxRepository,
-    private val scanner: PillboxScanner,
-    private val scheduleRepository: ScheduleRepository = ScheduleRepository(application),
-    private val historyRepository: HistoryRepository = HistoryRepository(application),
-    private val settingsRepository: SettingsRepository = SettingsRepository(application)
+    private val scanner: PillboxScanner
 ) : AndroidViewModel(application) {
 
     sealed class UiState {
@@ -63,21 +46,6 @@ class PillboxViewModel(
 
     val tiltSensorValue: StateFlow<Int> = repository.tiltState
 
-    // Box state (derived from tilt sensor)
-    val boxState: StateFlow<BoxState> = combine(
-        tiltSensorValue,
-        settingsRepository.sensorThresholds
-    ) { tilt, thresholds ->
-        PillDetectionLogic().getBoxState(tilt, thresholds.tiltThreshold)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = BoxState.CLOSED
-    )
-
-    // Pill detection logic instance
-    private val pillDetectionLogic = PillDetectionLogic()
-
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e("PillboxVM", "Coroutine failed: ${throwable.message}", throwable)
     }
@@ -98,100 +66,6 @@ class PillboxViewModel(
                     _uiState.value = UiState.Scanning(currentDevices, isScanningActive)
                 }
             }
-        }
-
-        // Monitor sensor data and detect pill removal
-        startPillDetection()
-    }
-
-    /**
-     * Start monitoring sensor data for pill detection.
-     * Observes sensor values and creates consumption records when pills are detected.
-     */
-    private fun startPillDetection() {
-        viewModelScope.launch {
-            combine(
-                lightSensorValue,
-                lightSensorValue2,
-                tiltSensorValue,
-                settingsRepository.sensorThresholds,
-                scheduleRepository.getAllSchedules()
-            ) { light1, light2, tilt, thresholds, schedules ->
-                // Detect pill removal for both compartments
-                val events = pillDetectionLogic.detectPillRemovalForBothCompartments(
-                    lightValue1 = light1,
-                    lightValue2 = light2,
-                    tiltValue = tilt,
-                    thresholds = thresholds
-                )
-
-                // Process each detection event
-                events.forEach { event ->
-                    if (event.detected) {
-                        handlePillDetection(event, schedules)
-                    }
-                }
-
-                // Return unit (we're just using this for side effects)
-                Unit
-            }.collect()
-        }
-    }
-
-    /**
-     * Handle a pill detection event by creating a consumption record.
-     * 
-     * @param event Sensor event indicating pill detection
-     * @param schedules All active schedules
-     */
-    private suspend fun handlePillDetection(
-        event: SensorEvent,
-        schedules: List<MedicationSchedule>
-    ) {
-        try {
-            val today = LocalDate.now()
-            val currentTime = LocalTime.now()
-
-            // Find active schedule for this compartment
-            val schedule = schedules.firstOrNull { schedule ->
-                schedule.compartmentNumber == event.compartmentNumber &&
-                schedule.isActive &&
-                schedule.daysOfWeek.contains(today.dayOfWeek)
-            }
-
-            if (schedule != null) {
-                // Check if a record already exists for today
-                val existingRecord = historyRepository.getTodayRecord(event.compartmentNumber).first()
-
-                if (existingRecord == null) {
-                    // Create new consumption record
-                    val record = ConsumptionRecord(
-                        id = UUID.randomUUID().toString(),
-                        compartmentNumber = event.compartmentNumber,
-                        date = today,
-                        scheduledTime = schedule.time,
-                        consumedTime = LocalDateTime.now(),
-                        status = ConsumptionStatus.TAKEN,
-                        detectionMethod = DetectionMethod.SENSOR
-                    )
-
-                    historyRepository.createRecord(record)
-                    Log.d("PillboxVM", "Created consumption record for compartment ${event.compartmentNumber}: $record")
-                } else if (existingRecord.status != ConsumptionStatus.TAKEN) {
-                    // Update existing record to TAKEN
-                    val updatedRecord = existingRecord.copy(
-                        consumedTime = LocalDateTime.now(),
-                        status = ConsumptionStatus.TAKEN,
-                        detectionMethod = DetectionMethod.SENSOR
-                    )
-                    historyRepository.updateRecord(updatedRecord)
-                    Log.d("PillboxVM", "Updated consumption record for compartment ${event.compartmentNumber}: $updatedRecord")
-                }
-            } else {
-                Log.d("PillboxVM", "Pill detected for compartment ${event.compartmentNumber} but no active schedule found")
-            }
-        } catch (e: Exception) {
-            Log.e("PillboxVM", "Error handling pill detection", e)
         }
     }
 
@@ -259,28 +133,17 @@ class PillboxViewModel(
         super.onCleared()
         scanner.stopScan()
         repository.release()
-        pillDetectionLogic.reset()
     }
 
     class Factory(
         private val application: Application,
         private val repository: PillboxRepository,
-        private val scanner: PillboxScanner,
-        private val scheduleRepository: ScheduleRepository? = null,
-        private val historyRepository: HistoryRepository? = null,
-        private val settingsRepository: SettingsRepository? = null
+        private val scanner: PillboxScanner
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(PillboxViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return PillboxViewModel(
-                    application,
-                    repository,
-                    scanner,
-                    scheduleRepository ?: ScheduleRepository(application),
-                    historyRepository ?: HistoryRepository(application),
-                    settingsRepository ?: SettingsRepository(application)
-                ) as T
+                return PillboxViewModel(application, repository, scanner) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
