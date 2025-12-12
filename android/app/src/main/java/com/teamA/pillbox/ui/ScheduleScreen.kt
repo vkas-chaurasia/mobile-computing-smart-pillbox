@@ -218,24 +218,19 @@ fun ScheduleScreen(
                     }
 
                     // Save Button
-                    // Check if there's an existing schedule for the selected compartment
-                    val hasExistingSchedule = selectedCompartment?.let { comp ->
-                        allSchedules.any { it.compartmentNumber == comp }
-                    } ?: false
-                    
                     Button(
                         onClick = { viewModel.saveSchedule() },
                         enabled = isValid,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
-                            imageVector = if (hasExistingSchedule) Icons.Default.Edit else Icons.Default.Save,
+                            imageVector = if (uiState is ScheduleUiState.Loaded) Icons.Default.Edit else Icons.Default.Save,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (hasExistingSchedule) "Update Schedule" else "Save Schedule"
+                            text = if (uiState is ScheduleUiState.Loaded) "Update Schedule" else "Save Schedule"
                         )
                     }
 

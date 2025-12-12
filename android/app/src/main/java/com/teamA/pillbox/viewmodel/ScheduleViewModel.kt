@@ -55,61 +55,28 @@ class ScheduleViewModel(
     val isValid: StateFlow<Boolean> = _isValid.asStateFlow()
 
     init {
-        // Observe all schedules and selected compartment to update UI state
+        // Observe all schedules and update UI state
         viewModelScope.launch {
-            combine(allSchedules, _selectedCompartment) { schedules, selectedCompartment ->
-                // Find schedule for selected compartment
-                val scheduleForCompartment = selectedCompartment?.let { comp ->
-                    schedules.firstOrNull { it.compartmentNumber == comp }
-                }
-                
+            allSchedules.collect { schedules ->
                 when {
-                    scheduleForCompartment != null -> {
-                        _uiState.value = ScheduleUiState.Loaded(scheduleForCompartment)
-                        // Load schedule data into form fields if not already set
-                        if (_selectedDays.value.isEmpty() && _selectedTime.value == null) {
-                            _selectedDays.value = scheduleForCompartment.daysOfWeek
-                            _selectedTime.value = scheduleForCompartment.time
-                            _medicationName.value = scheduleForCompartment.medicationName
-                            validateSchedule()
-                        }
-                    }
                     schedules.isEmpty() -> {
                         _uiState.value = ScheduleUiState.Empty
                     }
                     else -> {
-                        // No schedule for selected compartment, but schedules exist
-                        _uiState.value = ScheduleUiState.Empty
+                        // If we have schedules, show the first one as current
+                        // (or could show a list - depends on UI requirements)
+                        _uiState.value = ScheduleUiState.Loaded(schedules.first())
                     }
                 }
-            }.collect()
+            }
         }
     }
 
     /**
      * Update selected compartment.
-     * Loads existing schedule for that compartment if one exists.
      */
     fun updateSelectedCompartment(compartmentNumber: Int) {
         _selectedCompartment.value = compartmentNumber
-        
-        // Load existing schedule for this compartment into form fields
-        val existingSchedule = allSchedules.value.firstOrNull { 
-            it.compartmentNumber == compartmentNumber 
-        }
-        
-        if (existingSchedule != null) {
-            // Load existing schedule data
-            _selectedDays.value = existingSchedule.daysOfWeek
-            _selectedTime.value = existingSchedule.time
-            _medicationName.value = existingSchedule.medicationName
-        } else {
-            // Clear form for new schedule
-            _selectedDays.value = emptySet()
-            _selectedTime.value = null
-            _medicationName.value = "Medication"
-        }
-        
         validateSchedule()
     }
 
@@ -183,10 +150,9 @@ class ScheduleViewModel(
 
         viewModelScope.launch {
             try {
-                // Check if we're updating an existing schedule for this compartment
-                // Find by compartment number (not compartment + time, so we can update time)
+                // Check if we're updating an existing schedule (same compartment + time)
                 val existingSchedule = allSchedules.value.firstOrNull { 
-                    it.compartmentNumber == compartmentNumber
+                    it.compartmentNumber == compartmentNumber && it.time == time
                 }
 
                 val schedule = MedicationSchedule(
@@ -202,7 +168,7 @@ class ScheduleViewModel(
 
                 scheduleRepository.saveSchedule(schedule)
                 
-                Log.d(TAG, if (existingSchedule != null) "Schedule updated: $schedule" else "Schedule created: $schedule")
+                Log.d(TAG, "Schedule saved: $schedule")
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving schedule", e)
                 _uiState.value = ScheduleUiState.Error("Failed to save schedule: ${e.message}")
@@ -229,24 +195,11 @@ class ScheduleViewModel(
      * Reset/clear the current form (does not delete from repository).
      */
     fun resetSchedule() {
-        val currentCompartment = _selectedCompartment.value
         _selectedCompartment.value = null
         _selectedDays.value = emptySet()
         _selectedTime.value = null
         _medicationName.value = "Medication"
         _isValid.value = false
-        
-        // If there was a schedule for the current compartment, delete it
-        currentCompartment?.let { comp ->
-            viewModelScope.launch {
-                val scheduleToDelete = allSchedules.value.firstOrNull { 
-                    it.compartmentNumber == comp 
-                }
-                scheduleToDelete?.let {
-                    deleteSchedule(it.id)
-                }
-            }
-        }
         
         Log.d(TAG, "Schedule form reset")
     }
