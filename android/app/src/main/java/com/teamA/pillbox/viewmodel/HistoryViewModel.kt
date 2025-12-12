@@ -9,29 +9,30 @@ import androidx.lifecycle.viewModelScope
 import com.teamA.pillbox.domain.ConsumptionRecord
 import com.teamA.pillbox.domain.ConsumptionStatus
 import com.teamA.pillbox.domain.Statistics
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.teamA.pillbox.repository.HistoryRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.util.UUID
 
 /**
  * ViewModel for the History screen.
  * 
- * Currently uses in-memory storage.
- * Later, this will be connected to HistoryRepository.
+ * Uses HistoryRepository for data persistence.
  */
 class HistoryViewModel(
-    application: Application
+    application: Application,
+    private val historyRepository: HistoryRepository
 ) : AndroidViewModel(application) {
 
     private val TAG = "HistoryViewModel"
 
-    // In-memory storage (will be replaced with repository)
-    private val _allRecords = mutableListOf<ConsumptionRecord>()
+    // All records from repository (reactive)
+    private val _allRecords = historyRepository.getAllRecords()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     private val _uiState = MutableStateFlow<HistoryUiState>(HistoryUiState.Loading)
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
@@ -49,37 +50,32 @@ class HistoryViewModel(
     val statistics: StateFlow<Statistics?> = _statistics.asStateFlow()
 
     init {
-        loadHistory()
-    }
+        // Observe all records and update UI state
+        viewModelScope.launch {
+            _allRecords.collect { records ->
+                try {
+                    val today = LocalDate.now()
+                    val startDate = today.minusDays(7) // Last 7 days
+                    val stats = historyRepository.getStatistics(startDate, today, null)
+                    _statistics.value = stats
 
-    /**
-     * Load all history records from in-memory storage.
-     * Later, this will load from HistoryRepository.
-     */
-    fun loadHistory() {
-        try {
-            val records = _allRecords.sortedByDescending { 
-                it.date.atTime(it.scheduledTime)
-            }
-            
-            val stats = calculateStatistics(records)
-            _statistics.value = stats
-
-            when {
-                records.isEmpty() -> {
-                    _uiState.value = HistoryUiState.Empty(stats)
-                    _filteredRecords.value = emptyList()
-                }
-                else -> {
-                    _uiState.value = HistoryUiState.Loaded(records, stats)
-                    applyFilter(_selectedFilter.value)
+                    when {
+                        records.isEmpty() -> {
+                            _uiState.value = HistoryUiState.Empty(stats)
+                            _filteredRecords.value = emptyList()
+                        }
+                        else -> {
+                            _uiState.value = HistoryUiState.Loaded(records, stats)
+                            applyFilter(_selectedFilter.value)
+                        }
+                    }
+                    
+                    Log.d(TAG, "History loaded: ${records.size} records")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error loading history", e)
+                    _uiState.value = HistoryUiState.Error("Failed to load history: ${e.message}")
                 }
             }
-            
-            Log.d(TAG, "History loaded: ${records.size} records")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading history", e)
-            _uiState.value = HistoryUiState.Error("Failed to load history: ${e.message}")
         }
     }
 
@@ -90,10 +86,7 @@ class HistoryViewModel(
     fun applyFilter(status: ConsumptionStatus?) {
         _selectedFilter.value = status
         
-        val allRecords = when (_uiState.value) {
-            is HistoryUiState.Loaded -> (_uiState.value as HistoryUiState.Loaded).records
-            else -> emptyList()
-        }
+        val allRecords = _allRecords.value
         
         val filtered = if (status == null) {
             allRecords
@@ -106,128 +99,99 @@ class HistoryViewModel(
     }
 
     /**
-     * Calculate statistics from records.
-     * Default period: Last 7 days to today.
+     * Get today's consumption record for a specific compartment.
+     * @param compartmentNumber Compartment number (1 or 2), or null for any compartment
      */
-    private fun calculateStatistics(records: List<ConsumptionRecord>): Statistics {
-        val today = LocalDate.now()
-        val startDate = today.minusDays(7) // Last 7 days
-        val endDate = today
-
-        // Filter records within date range
-        val periodRecords = records.filter { 
-            it.date.isAfter(startDate.minusDays(1)) && 
-            !it.date.isAfter(endDate)
-        }
-
-        val totalScheduled = periodRecords.size
-        val totalTaken = periodRecords.count { it.status == ConsumptionStatus.TAKEN }
-        val totalMissed = periodRecords.count { it.status == ConsumptionStatus.MISSED }
-        val totalPending = periodRecords.count { it.status == ConsumptionStatus.PENDING }
-
-        val compliancePercentage = Statistics.calculateCompliance(totalTaken, totalMissed)
-        val currentStreak = calculateStreak(records)
-
-        return Statistics(
-            startDate = startDate,
-            endDate = endDate,
-            totalScheduled = totalScheduled,
-            totalTaken = totalTaken,
-            totalMissed = totalMissed,
-            totalPending = totalPending,
-            compliancePercentage = compliancePercentage,
-            currentStreak = currentStreak
-        )
+    fun getTodayRecord(compartmentNumber: Int? = null): StateFlow<ConsumptionRecord?> {
+        return historyRepository.getTodayRecord(compartmentNumber)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = null
+            )
     }
 
     /**
-     * Calculate current streak of consecutive days with medication taken.
-     * Streak counts backwards from today.
-     */
-    private fun calculateStreak(records: List<ConsumptionRecord>): Int {
-        val today = LocalDate.now()
-        var streak = 0
-        var currentDate = today
-
-        // Sort records by date (descending)
-        val sortedRecords = records
-            .filter { it.status == ConsumptionStatus.TAKEN }
-            .sortedByDescending { it.date }
-            .groupBy { it.date }
-
-        // Count consecutive days from today backwards
-        while (true) {
-            val hasRecord = sortedRecords.containsKey(currentDate) && 
-                           sortedRecords[currentDate]?.any { it.status == ConsumptionStatus.TAKEN } == true
-            
-            if (hasRecord) {
-                streak++
-                currentDate = currentDate.minusDays(1)
-            } else {
-                break
-            }
-        }
-
-        return streak
-    }
-
-    /**
-     * Get today's consumption record if it exists.
-     */
-    fun getTodayRecord(): ConsumptionRecord? {
-        val today = LocalDate.now()
-        return _allRecords.find { it.date == today }
-    }
-
-    /**
-     * Create a new consumption record (for testing/manual entry).
-     * Later, this will be handled by HistoryRepository.
+     * Create a new consumption record.
      */
     fun createRecord(record: ConsumptionRecord) {
-        _allRecords.add(record)
-        loadHistory() // Reload to update UI
-        Log.d(TAG, "Record created: $record")
+        viewModelScope.launch {
+            try {
+                historyRepository.createRecord(record)
+                Log.d(TAG, "Record created: $record")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating record", e)
+                _uiState.value = HistoryUiState.Error("Failed to create record: ${e.message}")
+            }
+        }
     }
 
     /**
      * Update an existing consumption record.
-     * Later, this will be handled by HistoryRepository.
      */
     fun updateRecord(record: ConsumptionRecord) {
-        val index = _allRecords.indexOfFirst { it.id == record.id }
-        if (index >= 0) {
-            _allRecords[index] = record
-            loadHistory() // Reload to update UI
-            Log.d(TAG, "Record updated: $record")
-        } else {
-            Log.w(TAG, "Record not found for update: ${record.id}")
+        viewModelScope.launch {
+            try {
+                historyRepository.updateRecord(record)
+                Log.d(TAG, "Record updated: $record")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating record", e)
+                _uiState.value = HistoryUiState.Error("Failed to update record: ${e.message}")
+            }
         }
     }
 
     /**
      * Get records by date range.
      */
-    fun getRecordsByDateRange(start: LocalDate, end: LocalDate): List<ConsumptionRecord> {
-        return _allRecords.filter { 
-            it.date.isAfter(start.minusDays(1)) && !it.date.isAfter(end)
-        }.sortedByDescending { it.date }
+    fun getRecordsByDateRange(start: LocalDate, end: LocalDate): Flow<List<ConsumptionRecord>> {
+        return historyRepository.getRecordsByDateRange(start, end)
     }
 
     /**
      * Get records by status.
      */
-    fun getRecordsByStatus(status: ConsumptionStatus): List<ConsumptionRecord> {
-        return _allRecords.filter { it.status == status }
-            .sortedByDescending { it.date }
+    fun getRecordsByStatus(status: ConsumptionStatus): Flow<List<ConsumptionRecord>> {
+        return historyRepository.getRecordsByStatus(status)
+    }
+
+    /**
+     * Get statistics for a date range and optional compartment.
+     */
+    fun getStatistics(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        compartmentNumber: Int? = null
+    ): StateFlow<Statistics> {
+        return flow {
+            emit(historyRepository.getStatistics(startDate, endDate, compartmentNumber))
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Statistics(
+                startDate = startDate,
+                endDate = endDate,
+                totalScheduled = 0,
+                totalTaken = 0,
+                totalMissed = 0,
+                totalPending = 0,
+                compliancePercentage = 0.0,
+                currentStreak = 0
+            )
+        )
     }
 
     class Factory(
-        private val application: Application
+        private val application: Application,
+        private val historyRepository: HistoryRepository? = null
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HistoryViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return HistoryViewModel(application) as T
+                return HistoryViewModel(
+                    application,
+                    historyRepository ?: HistoryRepository(application)
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

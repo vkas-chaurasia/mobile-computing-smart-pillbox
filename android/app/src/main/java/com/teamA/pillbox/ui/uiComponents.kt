@@ -195,7 +195,8 @@ fun PillboxControlScreen(
         is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> state.schedule
         else -> null
     }
-    val todayRecord = historyViewModel.getTodayRecord()
+    // Get today's record for any compartment (reactive)
+    val todayRecord by historyViewModel.getTodayRecord(null).collectAsState()
 
     // Placeholder: Get schedules for each compartment (will be replaced with real data later)
     // For now, we'll use the current schedule if it matches the compartment, otherwise null

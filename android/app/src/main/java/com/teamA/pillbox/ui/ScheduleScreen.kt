@@ -35,10 +35,8 @@ fun ScheduleScreen(
     val medicationName by viewModel.medicationName.collectAsState()
     val isValid by viewModel.isValid.collectAsState()
     
-    // Get all schedules for display (placeholder - will be replaced with Flow from repository)
-    val allSchedules = remember(uiState) { 
-        viewModel.getAllSchedules() 
-    }
+    // Get all schedules for display (reactive from repository)
+    val allSchedules by viewModel.allSchedules.collectAsState()
     
     var showResetDialog by remember { mutableStateOf(false) }
 

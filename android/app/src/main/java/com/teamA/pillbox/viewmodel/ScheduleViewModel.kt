@@ -7,10 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.teamA.pillbox.domain.MedicationSchedule
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.teamA.pillbox.repository.ScheduleRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.util.UUID
@@ -18,20 +17,24 @@ import java.util.UUID
 /**
  * ViewModel for the Schedule Setup screen.
  * 
- * Currently uses in-memory storage.
+ * Uses ScheduleRepository for data persistence.
  */
 class ScheduleViewModel(
-    application: Application
+    application: Application,
+    private val scheduleRepository: ScheduleRepository
 ) : AndroidViewModel(application) {
 
     private val TAG = "ScheduleViewModel"
 
-    // In-memory storage (will be replaced with repository)
-    // Placeholder: Store multiple schedules (will be replaced with repository)
-    private val _allSchedules = mutableListOf<MedicationSchedule>()
-    private var _currentSchedule: MedicationSchedule? = null
+    // All schedules from repository (reactive)
+    val allSchedules: StateFlow<List<MedicationSchedule>> = scheduleRepository.getAllSchedules()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
-    private val _uiState = MutableStateFlow<ScheduleUiState>(ScheduleUiState.Empty)
+    private val _uiState = MutableStateFlow<ScheduleUiState>(ScheduleUiState.Loading)
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
 
     // Form fields state
@@ -52,37 +55,21 @@ class ScheduleViewModel(
     val isValid: StateFlow<Boolean> = _isValid.asStateFlow()
 
     init {
-        loadSchedule()
-    }
-
-    /**
-     * Load existing schedules from in-memory storage.
-     * Later, this will load from ScheduleRepository.
-     */
-    fun loadSchedule() {
-        // Placeholder: Load all schedules (will be replaced with repository)
-        if (_allSchedules.isNotEmpty()) {
-            _uiState.value = ScheduleUiState.Loaded(_allSchedules.first())
-        } else {
-            _currentSchedule?.let { schedule ->
-                _selectedCompartment.value = schedule.compartmentNumber
-                _selectedDays.value = schedule.daysOfWeek
-                _selectedTime.value = schedule.time
-                _medicationName.value = schedule.medicationName
-                _uiState.value = ScheduleUiState.Loaded(schedule)
-                validateSchedule()
-            } ?: run {
-                _uiState.value = ScheduleUiState.Empty
-                _isValid.value = false
+        // Observe all schedules and update UI state
+        viewModelScope.launch {
+            allSchedules.collect { schedules ->
+                when {
+                    schedules.isEmpty() -> {
+                        _uiState.value = ScheduleUiState.Empty
+                    }
+                    else -> {
+                        // If we have schedules, show the first one as current
+                        // (or could show a list - depends on UI requirements)
+                        _uiState.value = ScheduleUiState.Loaded(schedules.first())
+                    }
+                }
             }
         }
-    }
-
-    /**
-     * Get all schedules (placeholder - will be replaced with repository).
-     */
-    fun getAllSchedules(): List<MedicationSchedule> {
-        return _allSchedules.ifEmpty { _currentSchedule?.let { listOf(it) } ?: emptyList() }
     }
 
     /**
@@ -142,8 +129,7 @@ class ScheduleViewModel(
     }
 
     /**
-     * Save the current schedule.
-     * Later, this will save to ScheduleRepository.
+     * Save the current schedule to repository.
      */
     fun saveSchedule() {
         if (!_isValid.value) {
@@ -162,67 +148,88 @@ class ScheduleViewModel(
         }
         val name = _medicationName.value.ifBlank { "Medication" }
 
-        try {
-            val schedule = MedicationSchedule(
-                id = _currentSchedule?.id ?: UUID.randomUUID().toString(),
-                compartmentNumber = compartmentNumber,
-                medicationName = name,
-                daysOfWeek = days,
-                time = time,
-                pillCount = 1, // Always 1 for MVP
-                isActive = true,
-                createdAt = _currentSchedule?.createdAt ?: System.currentTimeMillis()
-            )
+        viewModelScope.launch {
+            try {
+                // Check if we're updating an existing schedule (same compartment + time)
+                val existingSchedule = allSchedules.value.firstOrNull { 
+                    it.compartmentNumber == compartmentNumber && it.time == time
+                }
 
-            // Save to in-memory storage (will be replaced with repository)
-            // Placeholder: Add to list of schedules
-            val existingIndex = _allSchedules.indexOfFirst { 
-                it.id == schedule.id || 
-                (it.compartmentNumber == schedule.compartmentNumber && it.time == schedule.time)
+                val schedule = MedicationSchedule(
+                    id = existingSchedule?.id ?: UUID.randomUUID().toString(),
+                    compartmentNumber = compartmentNumber,
+                    medicationName = name,
+                    daysOfWeek = days,
+                    time = time,
+                    pillCount = 1, // Always 1 for MVP
+                    isActive = true,
+                    createdAt = existingSchedule?.createdAt ?: System.currentTimeMillis()
+                )
+
+                scheduleRepository.saveSchedule(schedule)
+                
+                Log.d(TAG, "Schedule saved: $schedule")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving schedule", e)
+                _uiState.value = ScheduleUiState.Error("Failed to save schedule: ${e.message}")
             }
-            if (existingIndex >= 0) {
-                _allSchedules[existingIndex] = schedule
-            } else {
-                _allSchedules.add(schedule)
-            }
-            _currentSchedule = schedule
-            _uiState.value = ScheduleUiState.Loaded(schedule)
-            
-            Log.d(TAG, "Schedule saved: $schedule")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving schedule", e)
-            _uiState.value = ScheduleUiState.Error("Failed to save schedule: ${e.message}")
         }
     }
 
     /**
-     * Reset/clear the current schedule.
-     * Later, this will delete from ScheduleRepository.
+     * Delete a schedule by ID.
+     */
+    fun deleteSchedule(id: String) {
+        viewModelScope.launch {
+            try {
+                scheduleRepository.deleteSchedule(id)
+                Log.d(TAG, "Schedule deleted: $id")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting schedule", e)
+                _uiState.value = ScheduleUiState.Error("Failed to delete schedule: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Reset/clear the current form (does not delete from repository).
      */
     fun resetSchedule() {
-        _currentSchedule = null
         _selectedCompartment.value = null
         _selectedDays.value = emptySet()
         _selectedTime.value = null
         _medicationName.value = "Medication"
         _isValid.value = false
-        _uiState.value = ScheduleUiState.Empty
         
-        Log.d(TAG, "Schedule reset")
+        Log.d(TAG, "Schedule form reset")
     }
 
     /**
-     * Get current schedule if it exists.
+     * Reset all schedules (delete all from repository).
      */
-    fun getCurrentSchedule(): MedicationSchedule? = _currentSchedule
+    fun resetAllSchedules() {
+        viewModelScope.launch {
+            try {
+                scheduleRepository.resetAllSchedules()
+                Log.d(TAG, "All schedules reset")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error resetting schedules", e)
+                _uiState.value = ScheduleUiState.Error("Failed to reset schedules: ${e.message}")
+            }
+        }
+    }
 
     class Factory(
-        private val application: Application
+        private val application: Application,
+        private val scheduleRepository: ScheduleRepository? = null
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ScheduleViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return ScheduleViewModel(application) as T
+                return ScheduleViewModel(
+                    application,
+                    scheduleRepository ?: ScheduleRepository(application)
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
