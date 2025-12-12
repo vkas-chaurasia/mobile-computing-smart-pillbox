@@ -234,7 +234,7 @@ fun SensorThresholdsCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Compartment 1 Light Threshold",
+                        text = "Slot 1 Light Threshold",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -279,7 +279,7 @@ fun SensorThresholdsCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Compartment 2 Light Threshold",
+                        text = "Slot 2 Light Threshold",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )

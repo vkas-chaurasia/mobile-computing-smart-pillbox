@@ -328,7 +328,7 @@ fun SchedulesGroupedByCompartment(
         // Compartment 1
         if (schedulesByCompartment.containsKey(1)) {
             Text(
-                text = "Compartment 1",
+                text = "Slot 1",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -345,7 +345,7 @@ fun SchedulesGroupedByCompartment(
         if (schedulesByCompartment.containsKey(2)) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Compartment 2",
+                text = "Slot 2",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

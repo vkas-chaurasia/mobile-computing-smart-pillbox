@@ -442,13 +442,13 @@ fun SensorDataCard(lightValue: Int, lightValue2: Int, tiltValue: Int) {
             Spacer(Modifier.height(16.dp))
 
             // Compartment 1
-            Text("Compartment 1", style = MaterialTheme.typography.titleMedium)
+            Text("Slot 1", style = MaterialTheme.typography.titleMedium)
             DataRow("Light Exposure:", "$lightValue %", Icons.Default.WbSunny)
 
             Spacer(Modifier.height(16.dp))
 
             // Compartment 2
-            Text("Compartment 2", style = MaterialTheme.typography.titleMedium)
+            Text("Slot 2", style = MaterialTheme.typography.titleMedium)
             DataRow("Light Exposure:", "$lightValue2 %", Icons.Default.WbSunny)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
