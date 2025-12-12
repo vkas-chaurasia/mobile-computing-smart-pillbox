@@ -50,7 +50,8 @@ fun PillboxTheme(content: @Composable () -> Unit) {
 fun PillboxScannerScreen(
     uiState: PillboxViewModel.UiState,
     onScanClicked: () -> Unit,
-    onDeviceSelected: (device: android.bluetooth.BluetoothDevice, name: String) -> Unit
+    onDeviceSelected: (device: android.bluetooth.BluetoothDevice, name: String) -> Unit,
+    onNavigateBack: (() -> Unit)? = null
 ) {
 
     val (isScanning, scannedDevices) = when (uiState) {
@@ -62,7 +63,17 @@ fun PillboxScannerScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Pillbox Scanner", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
+                navigationIcon = {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
+                }
             )
         },
         floatingActionButton = {

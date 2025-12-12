@@ -127,6 +127,9 @@ fun PillboxNavGraph(
                             onDeviceSelected = { device, name ->
                                 viewModel.onDeviceSelected(device, name)
                                 // Navigation to dashboard will happen automatically via LaunchedEffect above
+                            },
+                            onNavigateBack = {
+                                navController.popBackStack()
                             }
                         )
                     }
