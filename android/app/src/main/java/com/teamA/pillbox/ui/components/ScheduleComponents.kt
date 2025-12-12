@@ -177,7 +177,7 @@ fun CompartmentSelector(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Compartment 1",
+                    text = "Slot 1",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -195,7 +195,7 @@ fun CompartmentSelector(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Compartment 2",
+                    text = "Slot 2",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
