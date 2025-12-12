@@ -27,6 +27,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--
+      Notification permission for Android 13 (API 33) and above.
+      Required to show notifications.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
       app uses Bluetooth Low Energy. This allows the Google Play Store
       to filter and show the app only to devices that support BLE.
     -->

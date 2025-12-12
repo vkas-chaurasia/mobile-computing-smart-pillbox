@@ -37,7 +37,9 @@ import com.teamA.pillbox.ble.PillboxScanner
 import com.teamA.pillbox.database.PillboxDatabase
 import com.teamA.pillbox.navigation.PillboxNavGraph
 import com.teamA.pillbox.repository.PairedDeviceRepository
+import com.teamA.pillbox.notification.NotificationChannels
 import com.teamA.pillbox.repository.PillboxRepository
+import com.teamA.pillbox.service.AlertSchedulerService
 import com.teamA.pillbox.ui.PillboxTheme
 import com.teamA.pillbox.viewmodel.PillboxViewModel
 
@@ -45,6 +47,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize notification channels
+        NotificationChannels.createChannels(this)
+
+        // Start periodic medication checks
+        val alertScheduler = AlertSchedulerService(this)
+        alertScheduler.startPeriodicChecks()
 
         setContent {
             val application = this.application
