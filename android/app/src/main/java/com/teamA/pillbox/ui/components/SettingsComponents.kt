@@ -427,7 +427,7 @@ private fun CompartmentStateSelector(
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "Compartment $compartmentNumber",
+            text = "Slot $compartmentNumber",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
