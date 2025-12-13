@@ -1,13 +1,11 @@
 package com.teamA.pillbox.repository
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.teamA.pillbox.data.dataStore
 import com.teamA.pillbox.domain.AppTheme
 import com.teamA.pillbox.domain.CompartmentState
 import com.teamA.pillbox.domain.SensorThresholds
@@ -21,7 +19,7 @@ import kotlinx.coroutines.flow.map
  */
 class SettingsRepository(context: Context) {
     
-    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pillbox_settings")
+    // Use the singleton DataStore instance from AppDataStore.kt
     private val dataStore = context.dataStore
 
     // Preference keys
