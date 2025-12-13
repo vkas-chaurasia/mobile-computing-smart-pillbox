@@ -307,23 +307,16 @@ fun PillboxControlScreen(
     val lightValue2 by viewModel.lightSensorValue2.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
-    // Medication schedule and history (placeholder - will be updated when repositories are connected)
-    val scheduleUiState by scheduleViewModel.uiState.collectAsState()
-    val currentSchedule = when (val state = scheduleUiState) {
-        is com.teamA.pillbox.viewmodel.ScheduleUiState.Loaded -> state.schedule
-        else -> null
-    }
-    // Get today's record for any compartment (reactive)
-    val todayRecord by historyViewModel.getTodayRecord(null).collectAsState()
-
-    // Placeholder: Get schedules for each compartment (will be replaced with real data later)
-    // For now, we'll use the current schedule if it matches the compartment, otherwise null
-    val schedule1 = currentSchedule?.takeIf { it.compartmentNumber == 1 }
-    val schedule2 = currentSchedule?.takeIf { it.compartmentNumber == 2 }
+    // Get all schedules from repository (reactive)
+    val allSchedules by scheduleViewModel.allSchedules.collectAsState()
     
-    // Placeholder: Get today's records per compartment (will be replaced with real data later)
-    val todayRecord1 = todayRecord?.takeIf { it.compartmentNumber == 1 }
-    val todayRecord2 = todayRecord?.takeIf { it.compartmentNumber == 2 }
+    // Get schedules per compartment
+    val schedule1 = allSchedules.firstOrNull { it.compartmentNumber == 1 }
+    val schedule2 = allSchedules.firstOrNull { it.compartmentNumber == 2 }
+    
+    // Get today's records per compartment (reactive)
+    val todayRecord1 by historyViewModel.getTodayRecord(1).collectAsState()
+    val todayRecord2 by historyViewModel.getTodayRecord(2).collectAsState()
 
     // ***FIXED***: Get compartment states from SettingsViewModel instead of hardcoded values
     val compartment1State by settingsViewModel.compartment1State.collectAsState()
@@ -451,12 +444,8 @@ fun PillboxControlScreen(
                     )
                     Spacer(Modifier.height(24.dp))
                     
-                    SensorDataCard(lightValue = lightValue, lightValue2 = lightValue2, tiltValue = tiltValue)
-                    Spacer(Modifier.height(24.dp))
-                    AuxiliaryDataCard(
-                        manufacturerName = manufacturerName,
-                        modelNumber = modelNumber
-                    )
+                    // ***NEW***: All Schedules Card
+                    AllSchedulesCard(allSchedules = allSchedules)
                 }
                 Pillbox.State.NOT_AVAILABLE -> {
                     ConnectionStatusCard(
@@ -489,6 +478,10 @@ fun PillboxControlScreen(
                         todayRecord = todayRecord2,
                         onMarkAsTaken = onMarkAsTaken2
                     )
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // ***NEW***: All Schedules Card (show even when disconnected)
+                    AllSchedulesCard(allSchedules = allSchedules)
                 }
             }
         }
@@ -601,6 +594,66 @@ fun DataRow(label: String, value: String, icon: ImageVector, modifier: Modifier 
         Spacer(Modifier.width(12.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(140.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/**
+ * All Schedules Card for Dashboard
+ * Shows all medication schedules grouped by compartment
+ */
+@Composable
+fun AllSchedulesCard(
+    allSchedules: List<com.teamA.pillbox.domain.MedicationSchedule>,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "All Schedules",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            if (allSchedules.isEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "No schedules set",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Go to Schedule screen to create one",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+                com.teamA.pillbox.ui.components.SchedulesGroupedByCompartment(
+                    schedules = allSchedules,
+                    onScheduleClick = null // No click action on dashboard
+                )
+            }
+        }
     }
 }
 
