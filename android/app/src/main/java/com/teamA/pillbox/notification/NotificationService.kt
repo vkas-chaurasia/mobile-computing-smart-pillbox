@@ -36,20 +36,23 @@ class NotificationService(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val title = "Time to take your medication"
+        val title = "⏰ Time to take your medication"
         val text = "${schedule.medicationName} - Slot ${schedule.compartmentNumber}"
 
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_REMINDER_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Replace with custom icon
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText("It's time to take your medication from Slot ${schedule.compartmentNumber}.\n\nMedication: ${schedule.medicationName}"))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(false) // Keep notification visible until manually dismissed
+            .setOngoing(true) // Make it persistent - user must swipe to dismiss
             .setContentIntent(pendingIntent)
             .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
+            .setVibrate(longArrayOf(0, 500, 250, 500)) // Custom vibration pattern
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
 
         notificationManager.notify(notificationId, notification)
@@ -74,20 +77,23 @@ class NotificationService(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val title = "Missed Medication Dose"
+        val title = "⚠️ Missed Medication Dose"
         val text = "${schedule.medicationName} - Slot ${schedule.compartmentNumber}"
 
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_MISSED_DOSE_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert) // TODO: Replace with custom icon
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText("You missed your scheduled medication dose from Slot ${schedule.compartmentNumber}.\n\nMedication: ${schedule.medicationName}\nScheduled time: ${schedule.time}"))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
+            .setAutoCancel(false) // Keep notification visible until manually dismissed
+            .setOngoing(true) // Make it persistent - user must swipe to dismiss
             .setContentIntent(pendingIntent)
             .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
+            .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500)) // Longer vibration for missed dose
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
 
         notificationManager.notify(notificationId, notification)

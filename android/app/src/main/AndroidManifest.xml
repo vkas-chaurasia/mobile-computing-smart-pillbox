@@ -31,6 +31,14 @@
       Required to show notifications.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!--
+      Alarm permissions for scheduling exact alarms.
+      SCHEDULE_EXACT_ALARM: For exact-time medication reminders (Android 12+)
+      USE_EXACT_ALARM: Alternative for critical alarms (Android 14+)
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!--
       app uses Bluetooth Low Energy. This allows the Google Play Store
@@ -58,6 +66,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- BroadcastReceiver for medication alarm triggers -->
+        <receiver
+            android:name=".alarm.MedicationAlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+        </receiver>
     </application>
 
 </manifest>

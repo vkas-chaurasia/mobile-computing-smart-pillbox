@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.teamA.pillbox.domain.MedicationSchedule
 import com.teamA.pillbox.repository.ScheduleRepository
+import com.teamA.pillbox.service.AlertSchedulerService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -17,11 +18,12 @@ import java.util.UUID
 /**
  * ViewModel for the Schedule Setup screen.
  * 
- * Uses ScheduleRepository for data persistence.
+ * Uses ScheduleRepository for data persistence and AlertSchedulerService for alarms.
  */
 class ScheduleViewModel(
     application: Application,
-    private val scheduleRepository: ScheduleRepository
+    private val scheduleRepository: ScheduleRepository,
+    private val alertScheduler: AlertSchedulerService = AlertSchedulerService(application)
 ) : AndroidViewModel(application) {
 
     private val TAG = "ScheduleViewModel"
@@ -202,7 +204,10 @@ class ScheduleViewModel(
 
                 scheduleRepository.saveSchedule(schedule)
                 
-                Log.d(TAG, if (existingSchedule != null) "Schedule updated: $schedule" else "Schedule created: $schedule")
+                // Schedule alarms for this medication
+                alertScheduler.scheduleAlarmsForSchedule(schedule)
+                
+                Log.d(TAG, if (existingSchedule != null) "Schedule updated and alarms rescheduled: $schedule" else "Schedule created and alarms scheduled: $schedule")
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving schedule", e)
                 _uiState.value = ScheduleUiState.Error("Failed to save schedule: ${e.message}")
@@ -216,8 +221,11 @@ class ScheduleViewModel(
     fun deleteSchedule(id: String) {
         viewModelScope.launch {
             try {
+                // Cancel alarms before deleting
+                alertScheduler.cancelAlarmsForSchedule(id)
+                
                 scheduleRepository.deleteSchedule(id)
-                Log.d(TAG, "Schedule deleted: $id")
+                Log.d(TAG, "Schedule and alarms deleted: $id")
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting schedule", e)
                 _uiState.value = ScheduleUiState.Error("Failed to delete schedule: ${e.message}")
@@ -253,12 +261,20 @@ class ScheduleViewModel(
 
     /**
      * Reset all schedules (delete all from repository).
-     * Also clears the form fields.
+     * Also clears the form fields and cancels all alarms.
      */
     fun resetAllSchedules() {
         viewModelScope.launch {
             try {
+                // Get all schedule IDs before deleting
+                val scheduleIds = allSchedules.value.map { it.id }
+                
+                // Cancel all alarms
+                alertScheduler.cancelAllAlarms(scheduleIds)
+                
+                // Delete all schedules
                 scheduleRepository.resetAllSchedules()
+                
                 // Clear form fields
                 _selectedCompartment.value = null
                 _selectedDays.value = emptySet()
@@ -266,7 +282,7 @@ class ScheduleViewModel(
                 _medicationName.value = "Medication"
                 _isValid.value = false
                 _uiState.value = ScheduleUiState.Empty
-                Log.d(TAG, "All schedules reset")
+                Log.d(TAG, "All schedules and alarms reset")
             } catch (e: Exception) {
                 Log.e(TAG, "Error resetting schedules", e)
                 _uiState.value = ScheduleUiState.Error("Failed to reset schedules: ${e.message}")

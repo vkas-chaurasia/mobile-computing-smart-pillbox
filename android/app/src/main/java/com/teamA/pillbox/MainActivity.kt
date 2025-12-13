@@ -45,11 +45,24 @@ import com.teamA.pillbox.viewmodel.PillboxViewModel
 
 class MainActivity : ComponentActivity() {
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.d("MainActivity", "Notification permission granted")
+        } else {
+            Log.w("MainActivity", "Notification permission denied")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize notification channels
         NotificationChannels.createChannels(this)
+        
+        // Request notification permission for Android 13+
+        requestNotificationPermission()
 
         // Start periodic medication checks
         val alertScheduler = AlertSchedulerService(this)
@@ -86,6 +99,36 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+    
+    /**
+     * Request notification permission for Android 13+ (API 33+).
+     * This is required to show notifications on newer Android versions.
+     */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    Log.d("MainActivity", "Notification permission already granted")
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    // Show explanation to user why we need this permission
+                    Log.d("MainActivity", "Should show permission rationale")
+                    // For now, just request it - can add a dialog later if needed
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                else -> {
+                    // Directly request permission
+                    Log.d("MainActivity", "Requesting notification permission")
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            Log.d("MainActivity", "Notification permission not required for Android < 13")
         }
     }
 }
