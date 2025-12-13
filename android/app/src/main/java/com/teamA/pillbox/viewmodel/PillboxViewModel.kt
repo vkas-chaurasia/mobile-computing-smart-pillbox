@@ -12,6 +12,7 @@ import com.teamA.pillbox.BlePermissionHelper
 import com.teamA.pillbox.ble.Pillbox
 import com.teamA.pillbox.ble.PillboxScanner
 import com.teamA.pillbox.domain.BoxState
+import com.teamA.pillbox.domain.CompartmentState
 import com.teamA.pillbox.domain.ConsumptionRecord
 import com.teamA.pillbox.domain.ConsumptionStatus
 import com.teamA.pillbox.domain.DetectionMethod
@@ -25,6 +26,8 @@ import com.teamA.pillbox.repository.SettingsRepository
 import com.teamA.pillbox.sensor.PillDetectionLogic
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -80,6 +83,19 @@ class PillboxViewModel(
     // Pill detection logic instance
     private val pillDetectionLogic = PillDetectionLogic()
 
+    // Debouncing for compartment state changes (2-second delay)
+    private data class PendingStateChange(
+        val newState: CompartmentState,
+        val timestamp: Long  // System.currentTimeMillis()
+    )
+    
+    private val pendingStateChanges = mutableMapOf<Int, PendingStateChange>()
+    private val stateUpdateJobs = mutableMapOf<Int, Job>()
+    
+    companion object {
+        private const val STATE_CHANGE_DELAY_MS = 2000L  // 2 seconds
+    }
+
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e("PillboxVM", "Coroutine failed: ${throwable.message}", throwable)
     }
@@ -108,6 +124,9 @@ class PillboxViewModel(
 
         // Monitor sensor data and detect pill removal
         startPillDetection()
+        
+        // Monitor sensor data for automatic compartment state updates
+        startCompartmentStateMonitoring()
     }
 
     /**
@@ -215,6 +234,119 @@ class PillboxViewModel(
             }
         } catch (e: Exception) {
             Log.e("PillboxVM", "Error handling pill detection", e)
+        }
+    }
+
+    /**
+     * Start monitoring sensor data for automatic compartment state updates.
+     * Updates compartment states based on light sensor values with 2-second debouncing.
+     */
+    private fun startCompartmentStateMonitoring() {
+        viewModelScope.launch {
+            combine(
+                lightSensorValue,
+                lightSensorValue2,
+                settingsRepository.sensorThresholds,
+                settingsRepository.compartment1State,
+                settingsRepository.compartment2State
+            ) { light1, light2, thresholds, currentState1, currentState2 ->
+                // Determine what the states SHOULD be based on sensor values
+                val calculatedState1 = pillDetectionLogic.determineCompartmentState(
+                    lightValue = light1,
+                    lightThreshold = thresholds.lightThreshold1
+                )
+                val calculatedState2 = pillDetectionLogic.determineCompartmentState(
+                    lightValue = light2,
+                    lightThreshold = thresholds.lightThreshold2
+                )
+                
+                // Check compartment 1
+                if (calculatedState1 != currentState1) {
+                    handleStateChange(1, calculatedState1, currentState1)
+                } else {
+                    // Cancel pending change if state matches again
+                    cancelPendingStateChange(1)
+                }
+                
+                // Check compartment 2
+                if (calculatedState2 != currentState2) {
+                    handleStateChange(2, calculatedState2, currentState2)
+                } else {
+                    // Cancel pending change if state matches again
+                    cancelPendingStateChange(2)
+                }
+                
+                Unit
+            }.collect()
+        }
+    }
+
+    /**
+     * Handle a potential state change with debouncing.
+     * State only changes if it remains consistent for 2 seconds.
+     */
+    private fun handleStateChange(
+        compartmentNumber: Int,
+        newState: CompartmentState,
+        currentState: CompartmentState
+    ) {
+        val now = System.currentTimeMillis()
+        val pending = pendingStateChanges[compartmentNumber]
+        
+        if (pending != null && pending.newState == newState) {
+            // Same new state is pending, check if 2 seconds have passed
+            if (now - pending.timestamp >= STATE_CHANGE_DELAY_MS) {
+                // Time has passed, apply the state change
+                applyStateChange(compartmentNumber, newState)
+            }
+            // If not enough time, just keep waiting (already have a job running)
+        } else {
+            // New pending state or different state than before
+            // Cancel any existing job
+            stateUpdateJobs[compartmentNumber]?.cancel()
+            
+            // Store new pending state
+            pendingStateChanges[compartmentNumber] = PendingStateChange(newState, now)
+            
+            // Start a new delayed job
+            stateUpdateJobs[compartmentNumber] = viewModelScope.launch {
+                delay(STATE_CHANGE_DELAY_MS)
+                // After delay, check if still pending and apply
+                val stillPending = pendingStateChanges[compartmentNumber]
+                if (stillPending != null && stillPending.newState == newState) {
+                    applyStateChange(compartmentNumber, newState)
+                }
+            }
+            
+            Log.d("PillboxVM", "Compartment $compartmentNumber: Pending state change to $newState (waiting ${STATE_CHANGE_DELAY_MS}ms)")
+        }
+    }
+
+    /**
+     * Apply a compartment state change to the repository.
+     */
+    private fun applyStateChange(compartmentNumber: Int, newState: CompartmentState) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setCompartmentState(compartmentNumber, newState)
+                pendingStateChanges.remove(compartmentNumber)
+                stateUpdateJobs.remove(compartmentNumber)
+                Log.d("PillboxVM", "Compartment $compartmentNumber: Auto-updated state to $newState")
+            } catch (e: Exception) {
+                Log.e("PillboxVM", "Failed to update compartment $compartmentNumber state", e)
+            }
+        }
+    }
+
+    /**
+     * Cancel a pending state change.
+     */
+    private fun cancelPendingStateChange(compartmentNumber: Int) {
+        if (pendingStateChanges.containsKey(compartmentNumber)) {
+            stateUpdateJobs[compartmentNumber]?.cancel()
+            pendingStateChanges.remove(compartmentNumber)
+            stateUpdateJobs.remove(compartmentNumber)
+            Log.d("PillboxVM", "Compartment $compartmentNumber: Cancelled pending state change (sensor value changed back)")
         }
     }
 

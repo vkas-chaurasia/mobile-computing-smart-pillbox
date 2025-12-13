@@ -168,6 +168,26 @@ class PillDetectionLogic {
     }
 
     /**
+     * Determine compartment state based on light sensor value.
+     * 
+     * @param lightValue Current light sensor value (0-100)
+     * @param lightThreshold Light threshold setting
+     * @return CompartmentState (LOADED if light < threshold, EMPTY if light >= threshold)
+     */
+    fun determineCompartmentState(
+        lightValue: Int,
+        lightThreshold: Int
+    ): com.teamA.pillbox.domain.CompartmentState {
+        return if (lightValue >= lightThreshold) {
+            // High light value = no pill blocking light = EMPTY
+            com.teamA.pillbox.domain.CompartmentState.EMPTY
+        } else {
+            // Low light value = pill blocking light = LOADED
+            com.teamA.pillbox.domain.CompartmentState.LOADED
+        }
+    }
+
+    /**
      * Reset previous sensor values (useful for testing or reconnection).
      */
     fun reset() {
