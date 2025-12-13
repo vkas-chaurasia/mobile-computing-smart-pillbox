@@ -1,5 +1,6 @@
 package com.teamA.pillbox.navigation
 
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import com.teamA.pillbox.BlePermissionHelper
 import com.teamA.pillbox.ui.*
 import com.teamA.pillbox.viewmodel.PillboxViewModel
+import kotlinx.coroutines.launch
 
 /**
  * Main navigation graph for the app.
@@ -76,6 +79,9 @@ fun PillboxNavGraph(
         ) {
             // Welcome Screen
             composable(NavigationRoutes.WELCOME) {
+                val pairedDevices by viewModel.pairedDevices.collectAsState(initial = emptyList())
+                val coroutineScope = rememberCoroutineScope()
+                
                 WelcomeScreen(
                     onGetStarted = {
                         navController.navigate(NavigationRoutes.DASHBOARD) {
@@ -85,13 +91,26 @@ fun PillboxNavGraph(
                     onScanForDevice = {
                         navController.navigate(NavigationRoutes.SCANNER)
                     },
-                    isDeviceConnected = viewModel.uiState.value is PillboxViewModel.UiState.Connected
+                    isDeviceConnected = viewModel.uiState.value is PillboxViewModel.UiState.Connected,
+                    hasPairedDevices = pairedDevices.isNotEmpty(),
+                    onAutoConnect = {
+                        // Trigger auto-connect to most recent device
+                        coroutineScope.launch {
+                            val connected = viewModel.tryAutoConnect()
+                            if (connected) {
+                                // Navigation will happen automatically when connection succeeds
+                                Log.d("NavGraph", "Auto-connect initiated")
+                            }
+                        }
+                    }
                 )
             }
 
             // Scanner Screen
             composable(NavigationRoutes.SCANNER) {
                 val uiState by viewModel.uiState.collectAsState()
+                val pairedDevices by viewModel.pairedDevices.collectAsState(initial = emptyList())
+                
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissions ->
@@ -130,6 +149,13 @@ fun PillboxNavGraph(
                             },
                             onNavigateBack = {
                                 navController.popBackStack()
+                            },
+                            pairedDevices = pairedDevices,
+                            onConnectPairedDevice = { macAddress, deviceName ->
+                                viewModel.connectToPairedDevice(macAddress, deviceName)
+                            },
+                            onUnpairDevice = { macAddress ->
+                                viewModel.unpairDevice(macAddress)
                             }
                         )
                     }

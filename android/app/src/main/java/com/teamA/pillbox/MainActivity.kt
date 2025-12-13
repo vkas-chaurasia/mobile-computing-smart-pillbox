@@ -34,7 +34,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teamA.pillbox.ble.PillboxScanner
+import com.teamA.pillbox.database.PillboxDatabase
 import com.teamA.pillbox.navigation.PillboxNavGraph
+import com.teamA.pillbox.repository.PairedDeviceRepository
 import com.teamA.pillbox.repository.PillboxRepository
 import com.teamA.pillbox.ui.PillboxTheme
 import com.teamA.pillbox.viewmodel.PillboxViewModel
@@ -48,7 +50,19 @@ class MainActivity : ComponentActivity() {
             val application = this.application
             val pillboxRepository = remember { PillboxRepository(application) }
             val pillboxScanner = remember { PillboxScanner(application) }
-            val viewModelFactory = remember { PillboxViewModel.Factory(application, pillboxRepository, pillboxScanner) }
+            
+            // Initialize database and paired device repository
+            val database = remember { PillboxDatabase.getDatabase(application) }
+            val pairedDeviceRepository = remember { PairedDeviceRepository(database.pairedDeviceDao()) }
+            
+            val viewModelFactory = remember { 
+                PillboxViewModel.Factory(
+                    application, 
+                    pillboxRepository, 
+                    pillboxScanner,
+                    pairedDeviceRepository = pairedDeviceRepository
+                ) 
+            }
             val viewModel: PillboxViewModel = viewModel(factory = viewModelFactory)
             val permissionHelper = remember { BlePermissionHelper(this) }
 
@@ -70,16 +84,39 @@ class MainActivity : ComponentActivity() {
 class BlePermissionHelper(private val context: Context) {
     fun getRequiredPermissions(): List<String> {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+            // Android 12+ needs BLUETOOTH_SCAN and BLUETOOTH_CONNECT
+            // Also need location permission for BLE scanning to work
+            listOf(
+                Manifest.permission.BLUETOOTH_SCAN, 
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
         } else {
+            // Android 11 and below needs location permission
             listOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
     fun hasRequiredPermissions(): Boolean {
-        return getRequiredPermissions().all {
+        Log.d("BlePermissionHelper", "Checking permissions:")
+        getRequiredPermissions().forEach { permission ->
+            val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+            Log.d("BlePermissionHelper", "  $permission: ${if (granted) "GRANTED" else "DENIED"}")
+        }
+        
+        val allGranted = getRequiredPermissions().all {
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
+        
+        return allGranted
+    }
+    
+    fun isLocationEnabled(): Boolean {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        val gpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+        val networkEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+        Log.d("BlePermissionHelper", "Location services: GPS=$gpsEnabled, Network=$networkEnabled")
+        return gpsEnabled || networkEnabled
     }
 
     fun isBluetoothEnabled(): Boolean {

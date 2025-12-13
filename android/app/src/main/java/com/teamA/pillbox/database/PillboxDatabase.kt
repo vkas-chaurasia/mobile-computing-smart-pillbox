@@ -8,25 +8,29 @@ import androidx.room.TypeConverters
 import com.teamA.pillbox.database.converters.Converters
 import com.teamA.pillbox.database.daos.ConsumptionRecordDao
 import com.teamA.pillbox.database.daos.MedicationScheduleDao
+import com.teamA.pillbox.database.daos.PairedDeviceDao
 import com.teamA.pillbox.database.entities.ConsumptionRecordEntity
 import com.teamA.pillbox.database.entities.MedicationScheduleEntity
+import com.teamA.pillbox.database.entities.PairedDeviceEntity
 
 /**
  * Room database for the Pillbox app.
- * Contains tables for medication schedules and consumption records.
+ * Contains tables for medication schedules, consumption records, and paired devices.
  */
 @Database(
     entities = [
         MedicationScheduleEntity::class,
-        ConsumptionRecordEntity::class
+        ConsumptionRecordEntity::class,
+        PairedDeviceEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class PillboxDatabase : RoomDatabase() {
 
     abstract fun medicationScheduleDao(): MedicationScheduleDao
     abstract fun consumptionRecordDao(): ConsumptionRecordDao
+    abstract fun pairedDeviceDao(): PairedDeviceDao
 
     companion object {
         @Volatile

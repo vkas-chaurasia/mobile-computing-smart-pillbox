@@ -6,20 +6,25 @@
       Permissions for Bluetooth Low Energy on Android 12 (API 31) and above.
       BLUETOOTH_SCAN: Required to scan for nearby BLE devices.
       BLUETOOTH_CONNECT: Required to connect to paired BLE devices.
+      NOTE: Removed neverForLocation flag - we need location services for BLE scanning
     -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <!--
       Legacy permissions for Bluetooth on Android 11 (API 30) and below.
-      The maxSdkVersion="30" ensures these are only requested on older versions.
     -->
     <uses-permission android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="30"/>
+    
+    <!--
+      Location permission required for BLE scanning on ALL Android versions.
+      On Android 12+, BLE scanning still requires location services to be enabled.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--
       app uses Bluetooth Low Energy. This allows the Google Play Store

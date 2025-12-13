@@ -2,6 +2,7 @@ package com.teamA.pillbox.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material3.*
@@ -20,7 +21,9 @@ import androidx.compose.ui.unit.dp
 fun WelcomeScreen(
     onGetStarted: () -> Unit,
     onScanForDevice: (() -> Unit)? = null,
-    isDeviceConnected: Boolean = false
+    isDeviceConnected: Boolean = false,
+    onAutoConnect: (() -> Unit)? = null,
+    hasPairedDevices: Boolean = false
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -82,23 +85,53 @@ fun WelcomeScreen(
                 )
             }
             
-            // Optional: Scan for Device button (if device not connected)
-            if (!isDeviceConnected && onScanForDevice != null) {
+            // Optional: Auto-connect and Scan for Device buttons (if device not connected)
+            if (!isDeviceConnected) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                OutlinedButton(
-                    onClick = onScanForDevice,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        text = "Scan for Device",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                // Show Auto-Connect button if there are paired devices
+                if (hasPairedDevices && onAutoConnect != null) {
+                    Button(
+                        onClick = onAutoConnect,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bluetooth,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Quick Connect",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
+                // Scan for Device button
+                if (onScanForDevice != null) {
+                    OutlinedButton(
+                        onClick = onScanForDevice,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(
+                            text = if (hasPairedDevices) "Scan for New Device" else "Scan for Device",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             }
             

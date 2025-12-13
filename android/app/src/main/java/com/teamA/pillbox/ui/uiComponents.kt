@@ -51,13 +51,18 @@ fun PillboxScannerScreen(
     uiState: PillboxViewModel.UiState,
     onScanClicked: () -> Unit,
     onDeviceSelected: (device: android.bluetooth.BluetoothDevice, name: String) -> Unit,
-    onNavigateBack: (() -> Unit)? = null
+    onNavigateBack: (() -> Unit)? = null,
+    pairedDevices: List<com.teamA.pillbox.database.entities.PairedDeviceEntity> = emptyList(),
+    onConnectPairedDevice: ((macAddress: String, deviceName: String) -> Unit)? = null,
+    onUnpairDevice: ((macAddress: String) -> Unit)? = null
 ) {
 
     val (isScanning, scannedDevices) = when (uiState) {
         is PillboxViewModel.UiState.Scanning -> uiState.isScanningActive to uiState.scannedDevices
         else -> false to emptyList()
     }
+    
+    var showUnpairDialog by remember { mutableStateOf<com.teamA.pillbox.database.entities.PairedDeviceEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -90,6 +95,62 @@ fun PillboxScannerScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            // Paired Devices Section
+            if (pairedDevices.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp, 16.dp, 16.dp, 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Paired Devices",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        pairedDevices.forEach { device ->
+                            PairedDeviceListItem(
+                                device = device,
+                                onConnect = {
+                                    onConnectPairedDevice?.invoke(device.macAddress, device.deviceName)
+                                },
+                                onForget = {
+                                    showUnpairDialog = device
+                                }
+                            )
+                            if (device != pairedDevices.last()) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Divider between paired and scan sections
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(
+                        "OR",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+            }
+            
+            // Scanning Section
             if (isScanning && scannedDevices.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -108,11 +169,37 @@ fun PillboxScannerScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No devices found. Tap 'Scan' to begin.", color = MaterialTheme.colorScheme.onBackground)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.BluetoothSearching,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No devices found",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Tap 'Scan' to search for new devices",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                        )
+                    }
                 }
             } else {
+                Text(
+                    "Available Devices",
+                    modifier = Modifier.padding(16.dp, 8.dp, 16.dp, 8.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(scannedDevices) { result ->
@@ -122,6 +209,32 @@ fun PillboxScannerScreen(
                     }
                 }
             }
+        }
+        
+        // Unpair Confirmation Dialog
+        showUnpairDialog?.let { device ->
+            AlertDialog(
+                onDismissRequest = { showUnpairDialog = null },
+                title = { Text("Forget Device?") },
+                text = {
+                    Text("Are you sure you want to forget ${device.deviceName}? You'll need to scan for it again to reconnect.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onUnpairDevice?.invoke(device.macAddress)
+                            showUnpairDialog = null
+                        }
+                    ) {
+                        Text("Forget", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUnpairDialog = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
@@ -502,3 +615,66 @@ fun BluetoothDisabledScreen(onRequestEnable: () -> Unit) {
         }
     }
 }
+
+/**
+ * List item for a paired device showing connection info and actions.
+ */
+@Composable
+fun PairedDeviceListItem(
+    device: com.teamA.pillbox.database.entities.PairedDeviceEntity,
+    onConnect: () -> Unit,
+    onForget: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = device.deviceName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = device.macAddress,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Connected ${device.connectionCount} time${if (device.connectionCount != 1) "s" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            )
+        }
+        
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Forget button
+            IconButton(
+                onClick = onForget,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Forget device",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+            
+            // Connect button
+            Button(
+                onClick = onConnect,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Connect")
+            }
+        }
+    }
+}
+
