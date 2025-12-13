@@ -1,10 +1,8 @@
-
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") version "1.9.21-1.0.16"
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -42,10 +40,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.3"
     }
 }
 
