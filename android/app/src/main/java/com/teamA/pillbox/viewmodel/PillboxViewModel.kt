@@ -18,6 +18,7 @@ import com.teamA.pillbox.domain.ConsumptionStatus
 import com.teamA.pillbox.domain.DetectionMethod
 import com.teamA.pillbox.domain.MedicationSchedule
 import com.teamA.pillbox.domain.SensorEvent
+import com.teamA.pillbox.domain.SensorThresholds
 import com.teamA.pillbox.repository.HistoryRepository
 import com.teamA.pillbox.repository.PairedDeviceRepository
 import com.teamA.pillbox.repository.PillboxRepository
@@ -160,7 +161,16 @@ class PillboxViewModel(
                 settingsRepository.compartment1State,
                 settingsRepository.compartment2State,
                 scheduleRepository.getAllSchedules()
-            ) { light1, light2, tilt, thresholds, state1, state2, schedules ->
+            ) { values: Array<*> ->
+                val light1 = values[0] as Int
+                val light2 = values[1] as Int
+                val tilt = values[2] as Int
+                val thresholds = values[3] as SensorThresholds
+                val state1 = values[4] as CompartmentState
+                val state2 = values[5] as CompartmentState
+                @Suppress("UNCHECKED_CAST")
+                val schedules = values[6] as List<MedicationSchedule>
+
                 // Detect pill removal for both compartments with state validation
                 val events = pillDetectionLogic.detectPillRemovalForBothCompartments(
                     lightValue1 = light1,
@@ -268,7 +278,13 @@ class PillboxViewModel(
                 settingsRepository.sensorThresholds,
                 settingsRepository.compartment1State,
                 settingsRepository.compartment2State
-            ) { light1, light2, thresholds, currentState1, currentState2 ->
+            ) { values: Array<*> ->
+                val light1 = values[0] as Int
+                val light2 = values[1] as Int
+                val thresholds = values[2] as SensorThresholds
+                val currentState1 = values[3] as CompartmentState
+                val currentState2 = values[4] as CompartmentState
+
                 // Determine what the states SHOULD be based on sensor values
                 val calculatedState1 = pillDetectionLogic.determineCompartmentState(
                     lightValue = light1,
