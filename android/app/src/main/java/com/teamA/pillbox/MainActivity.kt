@@ -35,8 +35,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.teamA.pillbox.ble.PillboxScanner
 import com.teamA.pillbox.database.PillboxDatabase
+import com.teamA.pillbox.domain.AppTheme
 import com.teamA.pillbox.navigation.PillboxNavGraph
 import com.teamA.pillbox.repository.PairedDeviceRepository
+import com.teamA.pillbox.repository.SettingsRepository
 import com.teamA.pillbox.notification.NotificationChannels
 import com.teamA.pillbox.repository.PillboxRepository
 import com.teamA.pillbox.service.AlertSchedulerService
@@ -77,6 +79,10 @@ class MainActivity : ComponentActivity() {
             val database = remember { PillboxDatabase.getDatabase(application) }
             val pairedDeviceRepository = remember { PairedDeviceRepository(database.pairedDeviceDao()) }
             
+            // Initialize settings repository and observe theme
+            val settingsRepository = remember { SettingsRepository(application) }
+            val currentTheme by settingsRepository.theme.collectAsState(initial = AppTheme.SYSTEM)
+            
             val viewModelFactory = remember { 
                 PillboxViewModel.Factory(
                     application, 
@@ -88,7 +94,7 @@ class MainActivity : ComponentActivity() {
             val viewModel: PillboxViewModel = viewModel(factory = viewModelFactory)
             val permissionHelper = remember { BlePermissionHelper(this) }
 
-            PillboxTheme {
+            PillboxTheme(appTheme = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

@@ -12,6 +12,7 @@ import com.teamA.pillbox.service.AlertSchedulerService
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
 
@@ -52,6 +53,9 @@ class ScheduleViewModel(
     private val _medicationName = MutableStateFlow<String>("Medication")
     val medicationName: StateFlow<String> = _medicationName.asStateFlow()
 
+    private val _selectedStartDate = MutableStateFlow<LocalDate>(LocalDate.now())
+    val selectedStartDate: StateFlow<LocalDate> = _selectedStartDate.asStateFlow()
+
     // Validation state
     private val _isValid = MutableStateFlow(false)
     val isValid: StateFlow<Boolean> = _isValid.asStateFlow()
@@ -73,6 +77,7 @@ class ScheduleViewModel(
                             _selectedDays.value = scheduleForCompartment.daysOfWeek
                             _selectedTime.value = scheduleForCompartment.time
                             _medicationName.value = scheduleForCompartment.medicationName
+                            _selectedStartDate.value = scheduleForCompartment.startDate
                             validateSchedule()
                         }
                     }
@@ -105,11 +110,13 @@ class ScheduleViewModel(
             _selectedDays.value = existingSchedule.daysOfWeek
             _selectedTime.value = existingSchedule.time
             _medicationName.value = existingSchedule.medicationName
+            _selectedStartDate.value = existingSchedule.startDate
         } else {
             // Clear form for new schedule
             _selectedDays.value = emptySet()
             _selectedTime.value = null
             _medicationName.value = "Medication"
+            _selectedStartDate.value = LocalDate.now()
         }
         
         validateSchedule()
@@ -136,6 +143,14 @@ class ScheduleViewModel(
      */
     fun updateMedicationName(name: String) {
         _medicationName.value = name.ifBlank { "Medication" }
+    }
+
+    /**
+     * Update selected start date.
+     */
+    fun updateStartDate(date: LocalDate) {
+        _selectedStartDate.value = date
+        validateSchedule()
     }
 
     /**
@@ -182,6 +197,7 @@ class ScheduleViewModel(
             return
         }
         val name = _medicationName.value.ifBlank { "Medication" }
+        val startDate = _selectedStartDate.value
 
         viewModelScope.launch {
             try {
@@ -195,6 +211,7 @@ class ScheduleViewModel(
                     id = existingSchedule?.id ?: UUID.randomUUID().toString(),
                     compartmentNumber = compartmentNumber,
                     medicationName = name,
+                    startDate = startDate,
                     daysOfWeek = days,
                     time = time,
                     pillCount = 1, // Always 1 for MVP

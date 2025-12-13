@@ -24,6 +24,12 @@ data class MedicationScheduleEntity(
     val medicationName: String,
     
     /**
+     * Start date as epoch day (days since 1970-01-01).
+     * Schedule only applies from this date onwards.
+     */
+    val startDateEpochDay: Long,
+    
+    /**
      * Days of week as comma-separated string (e.g., "MONDAY,WEDNESDAY,FRIDAY").
      * Converted using Converters.
      */

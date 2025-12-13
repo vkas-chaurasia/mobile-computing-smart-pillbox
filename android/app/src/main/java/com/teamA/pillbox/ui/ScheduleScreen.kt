@@ -32,6 +32,7 @@ fun ScheduleScreen(
     val selectedCompartment by viewModel.selectedCompartment.collectAsState()
     val selectedDays by viewModel.selectedDays.collectAsState()
     val selectedTime by viewModel.selectedTime.collectAsState()
+    val selectedStartDate by viewModel.selectedStartDate.collectAsState()
     val medicationName by viewModel.medicationName.collectAsState()
     val isValid by viewModel.isValid.collectAsState()
     
@@ -201,6 +202,27 @@ fun ScheduleScreen(
                         selectedDays = selectedDays,
                         onDaysChanged = viewModel::updateSelectedDays
                     )
+
+                    // Start Date Picker
+                    Column {
+                        Text(
+                            text = "Start Date",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        DatePickerButton(
+                            selectedDate = selectedStartDate,
+                            onDateSelected = viewModel::updateStartDate
+                        )
+                        Text(
+                            text = "Schedule will start from this date",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
 
                     // Time Picker
                     Column {

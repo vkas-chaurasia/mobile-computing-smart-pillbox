@@ -3,6 +3,7 @@ package com.teamA.pillbox.database.mappers
 import com.teamA.pillbox.database.entities.MedicationScheduleEntity
 import com.teamA.pillbox.domain.MedicationSchedule
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 
 /**
@@ -18,6 +19,7 @@ object ScheduleMapper {
             id = entity.id,
             compartmentNumber = entity.compartmentNumber,
             medicationName = entity.medicationName,
+            startDate = LocalDate.ofEpochDay(entity.startDateEpochDay),
             daysOfWeek = entity.daysOfWeekString.split(",").map { DayOfWeek.valueOf(it.trim()) }.toSet(),
             time = LocalTime.ofSecondOfDay(entity.timeMillis / 1000),
             pillCount = entity.pillCount,
@@ -34,6 +36,7 @@ object ScheduleMapper {
             id = domain.id,
             compartmentNumber = domain.compartmentNumber,
             medicationName = domain.medicationName,
+            startDateEpochDay = domain.startDate.toEpochDay(),
             daysOfWeekString = domain.daysOfWeek.joinToString(",") { it.name },
             timeMillis = domain.time.toSecondOfDay().toLong() * 1000,
             pillCount = domain.pillCount,

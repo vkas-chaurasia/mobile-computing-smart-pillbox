@@ -1,6 +1,7 @@
 package com.teamA.pillbox.domain
 
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 
 /**
@@ -23,6 +24,13 @@ data class MedicationSchedule(
      * Default: "Medication"
      */
     val medicationName: String = "Medication",
+    
+    /**
+     * Start date for this schedule.
+     * Schedule will only be active from this date onwards.
+     * Defaults to today if not specified.
+     */
+    val startDate: LocalDate = LocalDate.now(),
     
     /**
      * Days of the week when medication should be taken.
@@ -56,6 +64,17 @@ data class MedicationSchedule(
         require(compartmentNumber in 1..2) { "Compartment number must be 1 or 2" }
         require(daysOfWeek.isNotEmpty()) { "At least one day must be selected" }
         require(pillCount > 0) { "Pill count must be positive" }
+    }
+    
+    /**
+     * Check if this schedule is active for a given date.
+     * Returns true if the date is on or after the start date,
+     * the schedule is active, and the day of week matches.
+     */
+    fun isActiveOn(date: LocalDate): Boolean {
+        return isActive && 
+               !date.isBefore(startDate) && 
+               daysOfWeek.contains(date.dayOfWeek)
     }
 }
 

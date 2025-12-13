@@ -3,6 +3,7 @@ package com.teamA.pillbox.ui
 import android.annotation.SuppressLint
 import android.bluetooth.le.ScanResult
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.teamA.pillbox.domain.AppTheme
 import com.teamA.pillbox.viewmodel.PillboxViewModel
 import com.teamA.pillbox.ble.Pillbox
 import com.teamA.pillbox.domain.BoxState
@@ -28,8 +30,20 @@ import androidx.compose.material3.Typography
 
 
 @Composable
-fun PillboxTheme(content: @Composable () -> Unit) {
-    val customColors = darkColorScheme(
+fun PillboxTheme(
+    appTheme: AppTheme = AppTheme.SYSTEM,
+    content: @Composable () -> Unit
+) {
+    val isSystemInDarkTheme = isSystemInDarkTheme()
+    
+    // Determine if we should use dark theme based on the selected theme
+    val useDarkTheme = when (appTheme) {
+        AppTheme.LIGHT -> false
+        AppTheme.DARK -> true
+        AppTheme.SYSTEM -> isSystemInDarkTheme
+    }
+    
+    val customDarkColors = darkColorScheme(
         primary = Color(0xFF4CAF50),
         onPrimary = Color.White,
         secondary = Color(0xFFFF9800),
@@ -37,9 +51,20 @@ fun PillboxTheme(content: @Composable () -> Unit) {
         onSurface = Color.White,
         background = Color(0xFF121212)
     )
+    
+    val customLightColors = lightColorScheme(
+        primary = Color(0xFF4CAF50),
+        onPrimary = Color.White,
+        secondary = Color(0xFFFF9800),
+        surface = Color(0xFFF5F5F5),
+        onSurface = Color(0xFF212121),
+        background = Color.White
+    )
+    
+    val colorScheme = if (useDarkTheme) customDarkColors else customLightColors
 
     MaterialTheme(
-        colorScheme = customColors,
+        colorScheme = colorScheme,
         typography = Typography(),
         content = content
     )

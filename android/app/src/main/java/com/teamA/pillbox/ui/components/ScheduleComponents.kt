@@ -142,6 +142,88 @@ fun TimePickerDialog(
 }
 
 /**
+ * Date picker button that shows selected date and opens date picker dialog.
+ */
+@Composable
+fun DatePickerButton(
+    selectedDate: java.time.LocalDate,
+    onDateSelected: (java.time.LocalDate) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    OutlinedButton(
+        onClick = { showDatePicker = true },
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = selectedDate.let { 
+                "${it.dayOfMonth} ${it.month.name.take(3).lowercase().replaceFirstChar { c -> c.uppercase() }} ${it.year}"
+            },
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+    
+    if (showDatePicker) {
+        DatePickerDialog(
+            initialDate = selectedDate,
+            onDateSelected = { date ->
+                onDateSelected(date)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+}
+
+/**
+ * Date picker dialog using Material 3 DatePicker.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerDialog(
+    initialDate: java.time.LocalDate,
+    onDateSelected: (java.time.LocalDate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Convert LocalDate to milliseconds since epoch
+    val initialMillis = initialDate.toEpochDay() * 24 * 60 * 60 * 1000
+    
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialMillis
+    )
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Start Date") },
+        text = {
+            DatePicker(
+                state = datePickerState,
+                showModeToggle = false
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val epochDay = millis / (24 * 60 * 60 * 1000)
+                        val selectedDate = java.time.LocalDate.ofEpochDay(epochDay)
+                        onDateSelected(selectedDate)
+                    }
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
  * Compartment selector using radio buttons.
  * Allows selection of compartment 1 or 2.
  */

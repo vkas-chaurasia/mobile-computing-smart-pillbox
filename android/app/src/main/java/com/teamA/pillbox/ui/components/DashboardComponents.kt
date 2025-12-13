@@ -313,14 +313,10 @@ fun CompartmentCard(
     modifier: Modifier = Modifier
 ) {
     val today = LocalDate.now()
-    val todayDayOfWeek = today.dayOfWeek
     
     // Check if medication is scheduled for today for this compartment
-    val isScheduledToday = schedule?.let {
-        it.compartmentNumber == compartmentNumber &&
-        it.isActive && 
-        it.daysOfWeek.contains(todayDayOfWeek)
-    } ?: false
+    // Uses the new isActiveOn() method which checks start date and day of week
+    val isScheduledToday = schedule?.isActiveOn(today) ?: false
 
     Card(
         modifier = modifier.fillMaxWidth(),
