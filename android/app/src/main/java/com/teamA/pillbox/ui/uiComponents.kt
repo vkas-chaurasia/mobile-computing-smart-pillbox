@@ -291,6 +291,11 @@ fun PillboxControlScreen(
         factory = com.teamA.pillbox.viewmodel.HistoryViewModel.Factory(
             androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
         )
+    ),
+    settingsViewModel: com.teamA.pillbox.viewmodel.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = com.teamA.pillbox.viewmodel.SettingsViewModel.Factory(
+            androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+        )
     )
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
@@ -320,9 +325,9 @@ fun PillboxControlScreen(
     val todayRecord1 = todayRecord?.takeIf { it.compartmentNumber == 1 }
     val todayRecord2 = todayRecord?.takeIf { it.compartmentNumber == 2 }
 
-    // Placeholder: Compartment states (will be replaced with real data from SettingsRepository later)
-    val compartment1State = remember { mutableStateOf(CompartmentState.LOADED) }
-    val compartment2State = remember { mutableStateOf(CompartmentState.LOADED) }
+    // ***FIXED***: Get compartment states from SettingsViewModel instead of hardcoded values
+    val compartment1State by settingsViewModel.compartment1State.collectAsState()
+    val compartment2State by settingsViewModel.compartment2State.collectAsState()
 
     // Determine box state from tilt sensor (placeholder logic)
     val boxState = remember(tiltValue) {
@@ -427,7 +432,7 @@ fun PillboxControlScreen(
                     // Compartment 1 Card
                     com.teamA.pillbox.ui.components.CompartmentCard(
                         compartmentNumber = 1,
-                        compartmentState = compartment1State.value,
+                        compartmentState = compartment1State,
                         lightSensorValue = lightValue,
                         schedule = schedule1,
                         todayRecord = todayRecord1,
@@ -438,7 +443,7 @@ fun PillboxControlScreen(
                     // Compartment 2 Card
                     com.teamA.pillbox.ui.components.CompartmentCard(
                         compartmentNumber = 2,
-                        compartmentState = compartment2State.value,
+                        compartmentState = compartment2State,
                         lightSensorValue = lightValue2,
                         schedule = schedule2,
                         todayRecord = todayRecord2,
@@ -467,7 +472,7 @@ fun PillboxControlScreen(
                     // Compartment 1 Card (placeholder data when disconnected)
                     com.teamA.pillbox.ui.components.CompartmentCard(
                         compartmentNumber = 1,
-                        compartmentState = compartment1State.value,
+                        compartmentState = compartment1State,
                         lightSensorValue = 0, // N/A when disconnected
                         schedule = schedule1,
                         todayRecord = todayRecord1,
@@ -478,7 +483,7 @@ fun PillboxControlScreen(
                     // Compartment 2 Card (placeholder data when disconnected)
                     com.teamA.pillbox.ui.components.CompartmentCard(
                         compartmentNumber = 2,
-                        compartmentState = compartment2State.value,
+                        compartmentState = compartment2State,
                         lightSensorValue = 0, // N/A when disconnected
                         schedule = schedule2,
                         todayRecord = todayRecord2,
