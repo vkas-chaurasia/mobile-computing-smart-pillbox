@@ -307,9 +307,11 @@ fun CompartmentCard(
     compartmentNumber: Int,
     compartmentState: CompartmentState,
     lightSensorValue: Int,
+    lightThreshold: Int,  // REQUIRED: Must pass actual threshold from settings
     schedule: MedicationSchedule?,
     todayRecord: ConsumptionRecord?,
     onMarkAsTaken: () -> Unit,
+    onMarkAsLoaded: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val today = LocalDate.now()
@@ -459,22 +461,100 @@ fun CompartmentCard(
                         }
                     }
 
-                    // Mark as Taken button
+                    // Mark as Taken button with state validation
                     if (todayRecord?.status != ConsumptionStatus.TAKEN) {
-                        Button(
-                            onClick = onMarkAsTaken,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Mark as Taken")
+                        if (compartmentState == CompartmentState.LOADED) {
+                            var showValidationDialog by remember { mutableStateOf(false) }
+                            
+                            Button(
+                                onClick = {
+                                    // Validate with sensor before allowing manual mark
+                                    if (lightSensorValue >= lightThreshold) {
+                                        // Sensor disagrees (light high = empty) - show confirmation dialog
+                                        showValidationDialog = true
+                                    } else {
+                                        // Sensor agrees (light low = loaded) - directly mark as taken
+                                        onMarkAsTaken()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Mark as Taken")
+                            }
+                            
+                            // Sensor validation dialog
+                            if (showValidationDialog) {
+                                SensorValidationDialog(
+                                    title = "Sensor Mismatch",
+                                    message = "The light sensor indicates this compartment may be empty (light: $lightSensorValue%, threshold: $lightThreshold%). Are you sure the pill is loaded and you want to mark it as taken?",
+                                    onDismiss = { showValidationDialog = false },
+                                    onConfirm = {
+                                        showValidationDialog = false
+                                        onMarkAsTaken()
+                                    }
+                                )
+                            }
+                        } else if (compartmentState == CompartmentState.EMPTY) {
+                            // Show "Mark as Loaded" button when compartment is empty
+                            if (onMarkAsLoaded != null) {
+                                var showRefillDialog by remember { mutableStateOf(false) }
+                                
+                                Button(
+                                    onClick = {
+                                        // Validate with sensor before allowing manual refill
+                                        if (lightSensorValue >= lightThreshold) {
+                                            // Sensor agrees compartment is empty, but user says they refilled
+                                            // Show confirmation dialog
+                                            showRefillDialog = true
+                                        } else {
+                                            // Sensor agrees (light low = loaded) - directly mark as loaded
+                                            onMarkAsLoaded()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Mark as Loaded")
+                                }
+                                
+                                // Refill validation dialog
+                                if (showRefillDialog) {
+                                    SensorValidationDialog(
+                                        title = "Sensor Verification",
+                                        message = "The light sensor still indicates this compartment is empty (light: $lightSensorValue%, threshold: $lightThreshold%). Did you put a pill in the compartment?",
+                                        onDismiss = { showRefillDialog = false },
+                                        onConfirm = {
+                                            showRefillDialog = false
+                                            onMarkAsLoaded()
+                                        }
+                                    )
+                                }
+                            } else {
+                                // Show message when compartment is empty and no refill handler
+                                Text(
+                                    text = "Compartment is empty. Please refill.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -506,5 +586,33 @@ private fun CompartmentStateBadge(state: CompartmentState) {
             color = color
         )
     }
+}
+
+/**
+ * Sensor validation dialog for manual overrides.
+ * Shows when sensor reading disagrees with user action.
+ */
+@Composable
+fun SensorValidationDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Confirm", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 

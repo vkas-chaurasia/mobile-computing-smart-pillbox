@@ -88,13 +88,17 @@ class PillDetectionLogic {
      * @param lightValue2 Current light sensor value for compartment 2
      * @param tiltValue Current tilt sensor value
      * @param thresholds Sensor thresholds to use
+     * @param compartmentState1 Current state of compartment 1 (for validation)
+     * @param compartmentState2 Current state of compartment 2 (for validation)
      * @return List of SensorEvents (can be 0, 1, or 2 events)
      */
     fun detectPillRemovalForBothCompartments(
         lightValue1: Int,
         lightValue2: Int,
         tiltValue: Int,
-        thresholds: SensorThresholds
+        thresholds: SensorThresholds,
+        compartmentState1: com.teamA.pillbox.domain.CompartmentState = com.teamA.pillbox.domain.CompartmentState.UNKNOWN,
+        compartmentState2: com.teamA.pillbox.domain.CompartmentState = com.teamA.pillbox.domain.CompartmentState.UNKNOWN
     ): List<SensorEvent> {
         val events = mutableListOf<SensorEvent>()
 
@@ -109,7 +113,9 @@ class PillDetectionLogic {
             val timestamp = LocalDateTime.now()
 
             // Detect for compartment 1
-            val detected1 = lightValue1 > lightThreshold1
+            // Only detect if compartment was LOADED before (state validation)
+            val detected1 = lightValue1 > lightThreshold1 && 
+                           compartmentState1 == com.teamA.pillbox.domain.CompartmentState.LOADED
             if (detected1) {
                 events.add(
                     SensorEvent(
@@ -126,7 +132,9 @@ class PillDetectionLogic {
             }
 
             // Detect for compartment 2
-            val detected2 = lightValue2 > lightThreshold2
+            // Only detect if compartment was LOADED before (state validation)
+            val detected2 = lightValue2 > lightThreshold2 &&
+                           compartmentState2 == com.teamA.pillbox.domain.CompartmentState.LOADED
             if (detected2) {
                 events.add(
                     SensorEvent(

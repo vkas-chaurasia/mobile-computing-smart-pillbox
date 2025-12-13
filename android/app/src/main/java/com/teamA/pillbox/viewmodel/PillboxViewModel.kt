@@ -157,14 +157,18 @@ class PillboxViewModel(
                 lightSensorValue2,
                 tiltSensorValue,
                 settingsRepository.sensorThresholds,
+                settingsRepository.compartment1State,
+                settingsRepository.compartment2State,
                 scheduleRepository.getAllSchedules()
-            ) { light1, light2, tilt, thresholds, schedules ->
-                // Detect pill removal for both compartments
+            ) { light1, light2, tilt, thresholds, state1, state2, schedules ->
+                // Detect pill removal for both compartments with state validation
                 val events = pillDetectionLogic.detectPillRemovalForBothCompartments(
                     lightValue1 = light1,
                     lightValue2 = light2,
                     tiltValue = tilt,
-                    thresholds = thresholds
+                    thresholds = thresholds,
+                    compartmentState1 = state1,
+                    compartmentState2 = state2
                 )
 
                 // Process each detection event
@@ -219,6 +223,14 @@ class PillboxViewModel(
 
                     historyRepository.createRecord(record)
                     Log.d("PillboxVM", "Created consumption record for compartment ${event.compartmentNumber}: $record")
+                    
+                    // Auto-update compartment state to EMPTY after successful detection
+                    settingsRepository.setCompartmentState(
+                        event.compartmentNumber,
+                        CompartmentState.EMPTY
+                    )
+                    Log.d("PillboxVM", "Auto-updated compartment ${event.compartmentNumber} to EMPTY after detection")
+                    
                 } else if (existingRecord.status != ConsumptionStatus.TAKEN) {
                     // Update existing record to TAKEN
                     val updatedRecord = existingRecord.copy(
@@ -228,6 +240,13 @@ class PillboxViewModel(
                     )
                     historyRepository.updateRecord(updatedRecord)
                     Log.d("PillboxVM", "Updated consumption record for compartment ${event.compartmentNumber}: $updatedRecord")
+                    
+                    // Auto-update compartment state to EMPTY after successful detection
+                    settingsRepository.setCompartmentState(
+                        event.compartmentNumber,
+                        CompartmentState.EMPTY
+                    )
+                    Log.d("PillboxVM", "Auto-updated compartment ${event.compartmentNumber} to EMPTY after detection")
                 }
             } else {
                 Log.d("PillboxVM", "Pill detected for compartment ${event.compartmentNumber} but no active schedule found")

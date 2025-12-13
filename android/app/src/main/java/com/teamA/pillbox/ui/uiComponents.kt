@@ -332,6 +332,9 @@ fun PillboxControlScreen(
     val lightValue2 by viewModel.lightSensorValue2.collectAsState()
     val tiltValue by viewModel.tiltSensorValue.collectAsState()
 
+    // Get sensor thresholds for validation
+    val sensorThresholds by settingsViewModel.sensorThresholds.collectAsState()
+
     // Get all schedules from repository (reactive)
     val allSchedules by scheduleViewModel.allSchedules.collectAsState()
     
@@ -377,6 +380,8 @@ fun PillboxControlScreen(
             )
             
             historyViewModel.createRecord(record)
+            // Update compartment state to EMPTY after manual mark
+            settingsViewModel.setCompartmentState(1, CompartmentState.EMPTY)
         }
         Unit
     }
@@ -399,8 +404,20 @@ fun PillboxControlScreen(
             )
             
             historyViewModel.createRecord(record)
+            // Update compartment state to EMPTY after manual mark
+            settingsViewModel.setCompartmentState(2, CompartmentState.EMPTY)
         }
         Unit
+    }
+
+    // Handle "Mark as Loaded" for compartment 1 (refill)
+    val onMarkAsLoaded1: () -> Unit = {
+        settingsViewModel.setCompartmentState(1, CompartmentState.LOADED)
+    }
+
+    // Handle "Mark as Loaded" for compartment 2 (refill)
+    val onMarkAsLoaded2: () -> Unit = {
+        settingsViewModel.setCompartmentState(2, CompartmentState.LOADED)
     }
 
     Scaffold(
@@ -452,9 +469,11 @@ fun PillboxControlScreen(
                         compartmentNumber = 1,
                         compartmentState = compartment1State,
                         lightSensorValue = lightValue,
+                        lightThreshold = sensorThresholds.lightThreshold1,
                         schedule = schedule1,
                         todayRecord = todayRecord1,
-                        onMarkAsTaken = onMarkAsTaken1
+                        onMarkAsTaken = onMarkAsTaken1,
+                        onMarkAsLoaded = onMarkAsLoaded1
                     )
                     Spacer(Modifier.height(16.dp))
                     
@@ -463,9 +482,11 @@ fun PillboxControlScreen(
                         compartmentNumber = 2,
                         compartmentState = compartment2State,
                         lightSensorValue = lightValue2,
+                        lightThreshold = sensorThresholds.lightThreshold2,
                         schedule = schedule2,
                         todayRecord = todayRecord2,
-                        onMarkAsTaken = onMarkAsTaken2
+                        onMarkAsTaken = onMarkAsTaken2,
+                        onMarkAsLoaded = onMarkAsLoaded2
                     )
                     Spacer(Modifier.height(24.dp))
                     
@@ -488,9 +509,11 @@ fun PillboxControlScreen(
                         compartmentNumber = 1,
                         compartmentState = compartment1State,
                         lightSensorValue = 0, // N/A when disconnected
+                        lightThreshold = sensorThresholds.lightThreshold1,
                         schedule = schedule1,
                         todayRecord = todayRecord1,
-                        onMarkAsTaken = onMarkAsTaken1
+                        onMarkAsTaken = onMarkAsTaken1,
+                        onMarkAsLoaded = onMarkAsLoaded1
                     )
                     Spacer(Modifier.height(16.dp))
                     
@@ -499,9 +522,11 @@ fun PillboxControlScreen(
                         compartmentNumber = 2,
                         compartmentState = compartment2State,
                         lightSensorValue = 0, // N/A when disconnected
+                        lightThreshold = sensorThresholds.lightThreshold2,
                         schedule = schedule2,
                         todayRecord = todayRecord2,
-                        onMarkAsTaken = onMarkAsTaken2
+                        onMarkAsTaken = onMarkAsTaken2,
+                        onMarkAsLoaded = onMarkAsLoaded2
                     )
                     Spacer(Modifier.height(24.dp))
                     
