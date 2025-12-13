@@ -253,11 +253,19 @@ class ScheduleViewModel(
 
     /**
      * Reset all schedules (delete all from repository).
+     * Also clears the form fields.
      */
     fun resetAllSchedules() {
         viewModelScope.launch {
             try {
                 scheduleRepository.resetAllSchedules()
+                // Clear form fields
+                _selectedCompartment.value = null
+                _selectedDays.value = emptySet()
+                _selectedTime.value = null
+                _medicationName.value = "Medication"
+                _isValid.value = false
+                _uiState.value = ScheduleUiState.Empty
                 Log.d(TAG, "All schedules reset")
             } catch (e: Exception) {
                 Log.e(TAG, "Error resetting schedules", e)

@@ -263,15 +263,76 @@ fun ScheduleScreen(
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
             title = { Text("Reset Schedule") },
-            text = { Text("Are you sure you want to reset the current schedule? This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.resetSchedule()
-                        showResetDialog = false
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (selectedCompartment == null) {
+                        Text(
+                            text = "No slot selected. Please select a slot to reset, or reset all schedules.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        Text("Are you sure you want to reset the schedule for Slot $selectedCompartment? This action cannot be undone.")
                     }
-                ) {
-                    Text("Reset", color = MaterialTheme.colorScheme.error)
+                    if (allSchedules.isNotEmpty()) {
+                        Text(
+                            text = "You can also reset all schedules at once.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                // Show appropriate buttons based on state
+                if (selectedCompartment != null && allSchedules.isNotEmpty()) {
+                    // Both options available: show in a Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = {
+                                viewModel.resetSchedule()
+                                showResetDialog = false
+                            }
+                        ) {
+                            Text("Reset Slot $selectedCompartment", color = MaterialTheme.colorScheme.error)
+                        }
+                        TextButton(
+                            onClick = {
+                                viewModel.resetAllSchedules()
+                                showResetDialog = false
+                            }
+                        ) {
+                            Text("Reset All", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                } else if (selectedCompartment != null) {
+                    // Only reset selected slot
+                    TextButton(
+                        onClick = {
+                            viewModel.resetSchedule()
+                            showResetDialog = false
+                        }
+                    ) {
+                        Text("Reset Slot $selectedCompartment", color = MaterialTheme.colorScheme.error)
+                    }
+                } else if (allSchedules.isNotEmpty()) {
+                    // Only reset all available
+                    TextButton(
+                        onClick = {
+                            viewModel.resetAllSchedules()
+                            showResetDialog = false
+                        }
+                    ) {
+                        Text("Reset All", color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    // No action available (shouldn't happen, but handle gracefully)
+                    TextButton(
+                        onClick = { showResetDialog = false }
+                    ) {
+                        Text("OK")
+                    }
                 }
             },
             dismissButton = {
