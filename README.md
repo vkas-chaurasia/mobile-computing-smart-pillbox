@@ -37,6 +37,16 @@ When the pillbox lid opens, light sensors detect the change and the tilt sensor 
 
 ---
 
+## 📸 Demo
+
+<div align="center">
+<img src="docs/images/pillbox-demo.jpg" alt="Smart Pillbox hardware connected to the Android companion app" width="500"/>
+<br/>
+<em>The Smart Pillbox hardware (Adafruit Feather nRF52840 + Grove sensors) connected via BLE to the Android companion app showing live sensor data.</em>
+</div>
+
+---
+
 ## ✨ Features
 
 | Category | Details |
